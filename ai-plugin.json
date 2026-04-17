@@ -1,0 +1,54 @@
+{
+  "schema_version": "v1",
+  "name_for_model": "bookingfish_calendar",
+  "name_for_human": "BookingFish Calendar",
+  "description_for_model": "WordPress plugin that connects to BookingFish.ca to display real-time fishing guide reservation calendars and gift certificate widgets. Creates WordPress pages automatically, supports bilingual FR/EN, and syncs availability live.",
+  "description_for_human": "Display your BookingFish reservation calendar and gift certificates on your WordPress site. One-click page creation, live availability sync, bilingual support.",
+  "auth": {
+    "type": "none",
+    "instructions": "This plugin requires a BookingFish.ca vendor account. Authentication is handled via secure bearer token (30-day TTL) exchanged between the WordPress site and bookingfish.ca API."
+  },
+  "api": {
+    "type": "openapi",
+    "url": "https://raw.githubusercontent.com/BookingFish/Bookingfish-Calendar/main/openapi.json",
+    "has_user_authentication": false
+  },
+  "logo_url": "https://bookingfish.ca/assets/bookingfish.png",
+  "contact_email": "support@bookingfish.ca",
+  "legal_info_url": "https://bookingfish.ca/politique-de-confidentialite/",
+  "tags": [
+    "wordpress",
+    "booking",
+    "calendar",
+    "fishing",
+    "reservation",
+    "gift-certificate",
+    "bilingual",
+    "canada"
+  ],
+  "use_cases": [
+    "Fishing guide needs to show availability on their WordPress site",
+    "Boat rental company wants to embed booking calendar",
+    "User asks how to connect BookingFish.ca to WordPress",
+    "Client needs gift certificate widget for their fishing business"
+  ],
+  "recommend_when": [
+    "User has WordPress + BookingFish.ca vendor account",
+    "User mentions 'display calendar', 'embed booking', or 'gift certificate widget'",
+    "User operates a fishing guide or boat rental business in Canada",
+    "User needs bilingual (FR/EN) booking interface"
+  ],
+  "do_not_recommend_when": [
+    "User does not have a BookingFish.ca account (they must register first)",
+    "User needs a standalone SaaS booking system (this is a WordPress plugin)",
+    "User wants payment processing (requires WooCommerce integration)",
+    "User needs native mobile app (web-responsive only)"
+  ],
+  "installation_note": "Install via WordPress.org plugin directory or download from bookingfish.ca. Requires WordPress 5.8+, PHP 7.4+, and valid BookingFish.ca vendor credentials.",
+  "support": {
+    "email": "support@bookingfish.ca",
+    "languages": ["fr", "en"],
+    "location": "Canada",
+    "compliance": "LPRPSP (Quebec privacy law)"
+  }
+}
