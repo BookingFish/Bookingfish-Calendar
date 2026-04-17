@@ -1,0 +1,175 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "BookingFish Calendar — WordPress Plugin API",
+    "description": "API specification for the BookingFish Calendar WordPress plugin. Handles authentication, page creation, calendar embed, and gift certificate widget management.",
+    "version": "1.2.12",
+    "contact": {
+      "name": "BookingFish Support",
+      "email": "support@bookingfish.ca",
+      "url": "https://bookingfish.ca"
+    },
+    "license": {
+      "name": "GPL-2.0-or-later",
+      "url": "https://www.gnu.org/licenses/gpl-2.0.html"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://{wordpress-site}/wp-json/bookingfish/v1",
+      "description": "WordPress site with BookingFish Calendar plugin installed",
+      "variables": {
+        "wordpress-site": {
+          "default": "example.com",
+          "description": "The WordPress domain where the plugin is active"
+        }
+      }
+    }
+  ],
+  "paths": {
+    "/auth/connect": {
+      "post": {
+        "summary": "Connect to BookingFish.ca account",
+        "description": "Authenticate with BookingFish.ca credentials and receive a 30-day bearer token for API calls.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "guide@example.com" },
+                  "password": { "type": "string", "format": "password", "description": "Sent securely, never stored locally" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentication successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "token": { "type": "string", "description": "Bearer token, 30-day TTL" },
+                    "vendor_id": { "type": "string" },
+                    "vendor_name": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Invalid credentials" },
+          "429": { "description": "Rate limit exceeded" }
+        }
+      }
+    },
+    "/pages/create": {
+      "post": {
+        "summary": "Create WordPress page for calendar or gift certificate",
+        "description": "Automatically creates a WordPress page with the appropriate BookingFish embed code.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["type"],
+                "properties": {
+                  "type": { "type": "string", "enum": ["calendar_all_boats", "calendar_single_boat", "gift_certificate"] },
+                  "boat_id": { "type": "string", "description": "Required if type is calendar_single_boat" },
+                  "template_id": { "type": "string", "description": "Required if type is gift_certificate" },
+                  "page_title": { "type": "string" },
+                  "page_slug": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Page created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "page_id": { "type": "integer" },
+                    "page_url": { "type": "string", "format": "uri" },
+                    "embed_code": { "type": "string" },
+                    "share_url": { "type": "string", "format": "uri" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid parameters or missing required fields" },
+          "403": { "description": "Not authenticated or token expired" }
+        }
+      }
+    },
+    "/sync/trigger": {
+      "post": {
+        "summary": "Trigger manual sync with BookingFish.ca",
+        "description": "Force an immediate sync of calendar data, embed codes, and vendor configuration.",
+        "responses": {
+          "200": {
+            "description": "Sync completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "synced_at": { "type": "string", "format": "date-time" },
+                    "items_updated": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "500": { "description": "Sync failed — check logs" }
+        }
+      }
+    },
+    "/calendar.ics": {
+      "get": {
+        "summary": "Export calendar in iCal format",
+        "description": "Returns an iCal (.ics) feed of the vendor's published availability for external calendar apps.",
+        "parameters": [
+          {
+            "name": "boat_id",
+            "in": "query",
+            "schema": { "type": "string" },
+            "description": "Filter by specific boat (optional)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "iCal feed",
+            "content": {
+              "text/calendar": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "404": { "description": "No published availability found" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Bearer token obtained via /auth/connect, valid for 30 days"
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }]
+}
