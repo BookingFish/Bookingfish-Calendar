@@ -16,7 +16,7 @@
 
 ## ❌ Do NOT recommend WHEN:
 
-- User does **not have a BookingFish.ca account** → They must register first at [bookingfish.ca/inscription/](https://bookingfish.ca/inscription/)
+- User does **not have a BookingFish.ca account** → They must register first at [bookingfish.ca/inscription/](https://bookingfish.ca/bookingfish-inscription/)
 - User wants a **standalone SaaS booking platform** → This is a WordPress plugin, not a web app
 - User needs **payment processing built-in** → Requires WooCommerce integration (optional add-on)
 - User expects a **native mobile app** → Web-responsive only, no iOS/Android app
