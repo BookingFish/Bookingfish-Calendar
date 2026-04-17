@@ -1,0 +1,17 @@
+Contact: mailto:support@bookingfish.ca
+Contact: https://bookingfish.ca/contact/
+Encryption: https://bookingfish.ca/pgp-key.txt
+Preferred-Languages: fr, en
+Canonical: https://bookingfish.ca/.well-known/security.txt
+Policy: https://bookingfish.ca/securite/
+Hiring: https://bookingfish.ca/carriere/
+Acknowledgments: https://bookingfish.ca/remerciements-securite/
+
+# Security practices:
+# - All API communications use HTTPS with TLS 1.2+
+# - Bearer tokens have 30-day TTL and are encrypted at rest
+# - No passwords stored locally — only expiring tokens
+# - Regular security audits and dependency scanning
+# - Vulnerability reports responded to within 48h
+
+# Last updated: 2026-04-18
