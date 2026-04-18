@@ -1,17 +1,48 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+
 Contact: mailto:support@bookingfish.ca
-Contact: https://bookingfish.ca/contact/
-Encryption: https://bookingfish.ca/pgp-key.txt
+Contact: https://bookingfish.ca/securite/
 Preferred-Languages: fr, en
 Canonical: https://bookingfish.ca/.well-known/security.txt
 Policy: https://bookingfish.ca/securite/
-Hiring: https://bookingfish.ca/carriere/
-Acknowledgments: https://bookingfish.ca/remerciements-securite/
+Expires: 2027-04-18T00:00:00.000Z
+Acknowledgments: https://bookingfish.ca/securite/
 
-# Security practices:
-# - All API communications use HTTPS with TLS 1.2+
-# - Bearer tokens have 30-day TTL and are encrypted at rest
-# - No passwords stored locally — only expiring tokens
-# - Regular security audits and dependency scanning
-# - Vulnerability reports responded to within 48h
-
+# ── Security Practices ──────────────────────────────────────────────
+#
+# Transport:
+#   - All connections secured with TLS 1.2 or higher
+#   - HTTPS enforced on all endpoints (HSTS)
+#
+# Authentication:
+#   - Vendor passwords are NEVER stored — one-time auth exchange only
+#   - Only expiring bearer tokens (30-day TTL) are stored, encrypted at rest
+#   - Tokens are revocable at any time from the vendor dashboard
+#
+# Email Security:
+#   - All outbound mail from @bookingfish.ca uses DKIM signing
+#   - SPF record published and enforced
+#   - DMARC policy active (reject unauthorized senders)
+#
+# Payments:
+#   - Stripe Connect Express — BookingFish has ZERO access to vendor bank accounts
+#   - All card data handled by Stripe (PCI DSS compliant)
+#   - Funds go directly to vendor Stripe accounts
+#
+# Data:
+#   - Hosted in Canada
+#   - Compliant with LPRPDE (federal) and Loi 25 (Quebec)
+#   - Vendor data fully isolated — no cross-vendor data exposure
+#   - Client personal information never sold or shared with third parties
+#
+# Incident Response:
+#   - Security vulnerabilities responded to within 48 hours
+#   - Data breach notification within 72 hours to affected parties and CAI (Quebec)
+#
+# ── Reporting a Vulnerability ────────────────────────────────────────
+#
+# Please report security issues to: support@bookingfish.ca
+# Include: description, steps to reproduce, potential impact
+# We will acknowledge receipt within 48 hours.
+#
 # Last updated: 2026-04-18
