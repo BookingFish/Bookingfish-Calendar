@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "BookingFish Calendar — WordPress Plugin API",
-    "description": "API specification for the BookingFish Calendar WordPress plugin. Handles authentication, page creation, calendar embed, and gift certificate widget management.",
+    "description": "API for the BookingFish Calendar WordPress plugin. Connects a WordPress site to the BookingFish.ca reservation platform for fishing guides and boat rental operators in Canada. Handles authentication, calendar page creation, real-time availability, bookings management, Stripe Connect status, and gift certificate widgets. Fully bilingual FR/EN. Hosted in Canada. Compliant with LPRPDE and Quebec Loi 25.",
     "version": "1.2.12",
     "contact": {
       "name": "BookingFish Support",
@@ -12,7 +12,14 @@
     "license": {
       "name": "GPL-2.0-or-later",
       "url": "https://www.gnu.org/licenses/gpl-2.0.html"
+    },
+    "x-logo": {
+      "url": "https://bookingfish.ca/assets/bookingfish.png"
     }
+  },
+  "externalDocs": {
+    "description": "Full documentation",
+    "url": "https://bookingfish.ca/documentation/"
   },
   "servers": [
     {
@@ -26,11 +33,21 @@
       }
     }
   ],
+  "tags": [
+    { "name": "auth",          "description": "Authentication with BookingFish.ca" },
+    { "name": "boats",         "description": "Boat management and availability" },
+    { "name": "bookings",      "description": "Reservation management" },
+    { "name": "pages",         "description": "WordPress page creation for calendars and gift certificates" },
+    { "name": "stripe",        "description": "Stripe Connect Express payment status" },
+    { "name": "sync",          "description": "Data synchronization with BookingFish.ca" },
+    { "name": "calendar",      "description": "iCal/ICS export" }
+  ],
   "paths": {
     "/auth/connect": {
       "post": {
+        "tags": ["auth"],
         "summary": "Connect to BookingFish.ca account",
-        "description": "Authenticate with BookingFish.ca credentials and receive a 30-day bearer token for API calls.",
+        "description": "Authenticate with BookingFish.ca vendor credentials. Returns a 30-day bearer token stored encrypted in WordPress. Password is never stored locally.",
         "requestBody": {
           "required": true,
           "content": {
@@ -39,8 +56,8 @@
                 "type": "object",
                 "required": ["email", "password"],
                 "properties": {
-                  "email": { "type": "string", "format": "email", "example": "guide@example.com" },
-                  "password": { "type": "string", "format": "password", "description": "Sent securely, never stored locally" }
+                  "email":    { "type": "string", "format": "email",    "example": "guide@example.com" },
+                  "password": { "type": "string", "format": "password", "description": "Sent over HTTPS, never stored locally" }
                 }
               }
             }
@@ -54,10 +71,11 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "success": { "type": "boolean", "example": true },
-                    "token": { "type": "string", "description": "Bearer token, 30-day TTL" },
-                    "vendor_id": { "type": "string" },
-                    "vendor_name": { "type": "string" }
+                    "success":     { "type": "boolean",  "example": true },
+                    "token":       { "type": "string",   "description": "Bearer token, 30-day TTL, encrypted at rest" },
+                    "vendor_id":   { "type": "string" },
+                    "vendor_name": { "type": "string" },
+                    "expires_at":  { "type": "string",   "format": "date-time" }
                   }
                 }
               }
@@ -68,10 +86,122 @@
         }
       }
     },
+    "/auth/disconnect": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Disconnect and revoke token",
+        "description": "Revokes the current bearer token and removes stored credentials from WordPress.",
+        "responses": {
+          "200": { "description": "Disconnected successfully" },
+          "403": { "description": "Not authenticated" }
+        }
+      }
+    },
+    "/boats": {
+      "get": {
+        "tags": ["boats"],
+        "summary": "List all vendor boats",
+        "description": "Returns all boats registered under the authenticated vendor account.",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["active", "inactive", "all"], "default": "active" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of boats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "boats": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "boat_id":     { "type": "string" },
+                          "name":        { "type": "string" },
+                          "status":      { "type": "string" },
+                          "capacity":    { "type": "integer" },
+                          "trip_types":  { "type": "array", "items": { "type": "string" } }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": { "description": "Not authenticated or token expired" }
+        }
+      }
+    },
+    "/boats/{boat_id}/availability": {
+      "get": {
+        "tags": ["boats"],
+        "summary": "Get availability for a specific boat",
+        "parameters": [
+          { "name": "boat_id",    "in": "path",  "required": true, "schema": { "type": "string" } },
+          { "name": "start_date", "in": "query", "required": true, "schema": { "type": "string", "format": "date" } },
+          { "name": "end_date",   "in": "query", "schema": { "type": "string", "format": "date" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Availability slots",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "boat_id":   { "type": "string" },
+                    "slots":     { "type": "array", "items": { "type": "object" } }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "description": "Boat not found" }
+        }
+      }
+    },
+    "/bookings": {
+      "get": {
+        "tags": ["bookings"],
+        "summary": "List bookings",
+        "description": "Retrieve bookings with optional filters. Useful for AI assistants summarizing a vendor's reservations.",
+        "parameters": [
+          { "name": "boat_id",    "in": "query", "schema": { "type": "string" } },
+          { "name": "start_date", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "end_date",   "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "status",     "in": "query", "schema": { "type": "string", "enum": ["pending", "confirmed", "cancelled", "all"] } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Booking list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "bookings": { "type": "array", "items": { "type": "object" } },
+                    "total":    { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "403": { "description": "Not authenticated or token expired" }
+        }
+      }
+    },
     "/pages/create": {
       "post": {
+        "tags": ["pages"],
         "summary": "Create WordPress page for calendar or gift certificate",
-        "description": "Automatically creates a WordPress page with the appropriate BookingFish embed code.",
+        "description": "Automatically creates a WordPress page with the appropriate BookingFish embed code (calendar or gift certificate widget).",
         "requestBody": {
           "required": true,
           "content": {
@@ -80,11 +210,11 @@
                 "type": "object",
                 "required": ["type"],
                 "properties": {
-                  "type": { "type": "string", "enum": ["calendar_all_boats", "calendar_single_boat", "gift_certificate"] },
-                  "boat_id": { "type": "string", "description": "Required if type is calendar_single_boat" },
+                  "type":        { "type": "string", "enum": ["calendar_all_boats", "calendar_single_boat", "gift_certificate"] },
+                  "boat_id":     { "type": "string", "description": "Required if type is calendar_single_boat" },
                   "template_id": { "type": "string", "description": "Required if type is gift_certificate" },
-                  "page_title": { "type": "string" },
-                  "page_slug": { "type": "string" }
+                  "page_title":  { "type": "string" },
+                  "page_slug":   { "type": "string" }
                 }
               }
             }
@@ -98,10 +228,10 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "page_id": { "type": "integer" },
-                    "page_url": { "type": "string", "format": "uri" },
+                    "page_id":    { "type": "integer" },
+                    "page_url":   { "type": "string", "format": "uri" },
                     "embed_code": { "type": "string" },
-                    "share_url": { "type": "string", "format": "uri" }
+                    "share_url":  { "type": "string", "format": "uri" }
                   }
                 }
               }
@@ -112,8 +242,36 @@
         }
       }
     },
+    "/stripe/status": {
+      "get": {
+        "tags": ["stripe"],
+        "summary": "Check Stripe Connect Express status",
+        "description": "Returns the Stripe Connect Express onboarding status for the vendor. BookingFish never has access to the vendor's bank account — all funds go directly to the vendor via Stripe.",
+        "responses": {
+          "200": {
+            "description": "Stripe Connect status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "connected":          { "type": "boolean" },
+                    "payouts_enabled":    { "type": "boolean" },
+                    "charges_enabled":    { "type": "boolean" },
+                    "onboarding_complete":{ "type": "boolean" },
+                    "note": { "type": "string", "example": "BookingFish never has access to vendor bank account. Funds go directly to vendor via Stripe Connect Express." }
+                  }
+                }
+              }
+            }
+          },
+          "403": { "description": "Not authenticated" }
+        }
+      }
+    },
     "/sync/trigger": {
       "post": {
+        "tags": ["sync"],
         "summary": "Trigger manual sync with BookingFish.ca",
         "description": "Force an immediate sync of calendar data, embed codes, and vendor configuration.",
         "responses": {
@@ -124,28 +282,29 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "success": { "type": "boolean" },
-                    "synced_at": { "type": "string", "format": "date-time" },
+                    "success":       { "type": "boolean" },
+                    "synced_at":     { "type": "string", "format": "date-time" },
                     "items_updated": { "type": "integer" }
                   }
                 }
               }
             }
           },
-          "500": { "description": "Sync failed — check logs" }
+          "500": { "description": "Sync failed — check plugin logs" }
         }
       }
     },
     "/calendar.ics": {
       "get": {
-        "summary": "Export calendar in iCal format",
-        "description": "Returns an iCal (.ics) feed of the vendor's published availability for external calendar apps.",
+        "tags": ["calendar"],
+        "summary": "Export availability in iCal format",
+        "description": "Returns an iCal (.ics) feed of the vendor's published availability for Google Calendar, Outlook, Apple Calendar, etc.",
         "parameters": [
           {
             "name": "boat_id",
             "in": "query",
             "schema": { "type": "string" },
-            "description": "Filter by specific boat (optional)"
+            "description": "Filter by specific boat (optional — omit for all boats)"
           }
         ],
         "responses": {
@@ -167,7 +326,7 @@
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "description": "Bearer token obtained via /auth/connect, valid for 30 days"
+        "description": "Bearer token obtained via /auth/connect. Valid 30 days, encrypted at rest, revocable anytime."
       }
     }
   },
