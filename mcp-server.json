@@ -1,44 +1,78 @@
 {
   "mcp_version": "1.0",
   "name": "bookingfish-calendar-mcp",
-  "description": "Model Context Protocol server for BookingFish Calendar WordPress plugin. Enables AI assistants to interact with booking data, calendar availability, and page management.",
+  "display_name": "BookingFish Calendar",
+  "description": "Model Context Protocol server for BookingFish — a Canadian reservation platform for fishing guides and boat rental operators. Enables AI assistants to query availability, manage bookings, create WordPress calendar pages, check Stripe payment status, and guide vendors through setup. Fully bilingual FR/EN.",
+  "homepage": "https://bookingfish.ca",
   "capabilities": {
     "tools": [
       {
         "name": "check_availability",
-        "description": "Check real-time availability for a fishing guide's boat on specific dates",
+        "description": "Check real-time availability for a fishing guide's boat on specific dates. Returns available time slots, trip types, and capacity.",
         "input_schema": {
           "type": "object",
           "properties": {
-            "boat_id": { "type": "string" },
-            "start_date": { "type": "string", "format": "date" },
-            "end_date": { "type": "string", "format": "date" },
-            "trip_type": { "type": "string", "enum": ["half_day", "full_day", "multi_day"] }
+            "boat_id":    { "type": "string", "description": "Unique identifier for the boat" },
+            "start_date": { "type": "string", "format": "date", "description": "Start of the date range (YYYY-MM-DD)" },
+            "end_date":   { "type": "string", "format": "date", "description": "End of the date range (YYYY-MM-DD)" },
+            "trip_type":  { "type": "string", "enum": ["half_day", "full_day", "multi_day", "custom"] }
           },
           "required": ["boat_id", "start_date"]
         }
       },
       {
-        "name": "create_booking_page",
-        "description": "Create a WordPress page with embedded booking calendar for a specific boat",
+        "name": "list_boats",
+        "description": "List all boats registered under the connected vendor account with their current status and availability summary.",
         "input_schema": {
           "type": "object",
           "properties": {
-            "boat_id": { "type": "string" },
+            "status": { "type": "string", "enum": ["active", "inactive", "all"], "default": "active" }
+          }
+        }
+      },
+      {
+        "name": "get_bookings",
+        "description": "Retrieve bookings for a vendor, with optional filters by date range, boat, or status.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "boat_id":    { "type": "string" },
+            "start_date": { "type": "string", "format": "date" },
+            "end_date":   { "type": "string", "format": "date" },
+            "status":     { "type": "string", "enum": ["pending", "confirmed", "cancelled", "all"] }
+          }
+        }
+      },
+      {
+        "name": "create_booking_page",
+        "description": "Create a WordPress page with an embedded booking calendar for a specific boat or all boats.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "boat_id":    { "type": "string", "description": "Omit to create an all-boats calendar page" },
             "page_title": { "type": "string" },
-            "page_slug": { "type": "string" }
-          },
-          "required": ["boat_id"]
+            "page_slug":  { "type": "string" }
+          }
         }
       },
       {
         "name": "get_gift_certificate_templates",
-        "description": "List available gift certificate templates for the connected vendor",
+        "description": "List available gift certificate templates for the connected vendor.",
         "input_schema": { "type": "object", "properties": {} }
       },
       {
         "name": "sync_calendar_data",
-        "description": "Trigger manual sync of calendar data from BookingFish.ca",
+        "description": "Trigger manual sync of calendar data, embed codes, and vendor config from BookingFish.ca.",
+        "input_schema": { "type": "object", "properties": {} }
+      },
+      {
+        "name": "check_stripe_status",
+        "description": "Check the Stripe Connect Express connection status for the vendor. Confirms whether payouts are enabled and the vendor's account is fully onboarded. BookingFish never has access to bank account details.",
+        "input_schema": { "type": "object", "properties": {} }
+      },
+      {
+        "name": "get_vendor_profile",
+        "description": "Retrieve the connected vendor's profile: name, email, language preference, active boats, and account status.",
         "input_schema": { "type": "object", "properties": {} }
       }
     ],
@@ -46,36 +80,57 @@
       {
         "uri": "bookingfish://vendor/{vendor_id}/profile",
         "name": "Vendor Profile",
-        "description": "Retrieve connected vendor profile information"
+        "description": "Connected vendor profile: name, email, language, plan, account status"
       },
       {
         "uri": "bookingfish://calendar/{boat_id}/availability",
         "name": "Boat Availability",
-        "description": "Get real-time availability calendar for a specific boat"
+        "description": "Real-time availability calendar for a specific boat"
       },
       {
         "uri": "bookingfish://pages/list",
-        "name": "Created Pages",
-        "description": "List WordPress pages created by the plugin"
+        "name": "Created WordPress Pages",
+        "description": "List of WordPress pages created by the plugin (calendar, gift certificates)"
+      },
+      {
+        "uri": "bookingfish://stripe/status",
+        "name": "Stripe Connect Status",
+        "description": "Stripe Connect Express onboarding status and payout enablement for the vendor"
+      },
+      {
+        "uri": "bookingfish://bookings/recent",
+        "name": "Recent Bookings",
+        "description": "Last 30 days of bookings across all boats for the vendor"
       }
     ],
     "prompts": [
       {
         "name": "setup_new_vendor",
-        "description": "Step-by-step guidance for connecting a new BookingFish vendor account",
+        "description": "Step-by-step guidance for connecting a new BookingFish vendor account to their WordPress site",
         "arguments": ["vendor_email", "preferred_language"]
       },
       {
         "name": "troubleshoot_embed",
-        "description": "Help debug issues with calendar or gift certificate embed display",
+        "description": "Help debug issues with calendar or gift certificate embed display on WordPress",
         "arguments": ["page_url", "error_description"]
+      },
+      {
+        "name": "setup_stripe_connect",
+        "description": "Guide vendor through connecting Stripe Connect Express to receive booking payments directly",
+        "arguments": ["vendor_id", "country"]
+      },
+      {
+        "name": "explain_privacy_compliance",
+        "description": "Explain BookingFish data privacy practices to a vendor or client (LPRPDE / Loi 25 / Stripe)",
+        "arguments": ["language", "role"]
       }
     ]
   },
   "auth": {
     "type": "bearer",
     "token_endpoint": "https://bookingfish.ca/wp-json/bf/v1/auth/token",
-    "ttl_seconds": 2592000
+    "ttl_seconds": 2592000,
+    "note": "Password sent once for auth, never stored. Token encrypted at rest, revocable anytime."
   },
   "endpoints": {
     "base_url": "https://{wordpress-site}/wp-json/bookingfish/v1",
@@ -86,7 +141,19 @@
     "wordpress_min": "5.8",
     "php_min": "7.4",
     "languages": ["fr", "en"],
-    "compliance": ["LPRPSP", "GDPR"],
-    "support_email": "support@bookingfish.ca"
+    "compliance": ["LPRPDE", "Loi 25 (Quebec)"],
+    "hosting": "Canada",
+    "payment_processor": "Stripe Connect Express (funds to vendor directly)",
+    "email_security": "DKIM, SPF, DMARC",
+    "support_email": "support@bookingfish.ca",
+    "key_urls": {
+      "website": "https://bookingfish.ca",
+      "register": "https://bookingfish.ca/bookingfish-newinscription/",
+      "login": "https://bookingfish.ca/bookingfish-login/",
+      "documentation": "https://bookingfish.ca/documentation/",
+      "download": "https://bookingfish.ca/telechargement/",
+      "security": "https://bookingfish.ca/securite/",
+      "privacy": "https://bookingfish.ca/politique-de-confidentialite/"
+    }
   }
 }
