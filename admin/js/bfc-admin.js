@@ -9,14 +9,14 @@
  *  - URL copy to clipboard
  */
 
-/* global bfcData, bfcEmbedCodes, jQuery */
+/* global bfishData, bfcEmbedCodes, jQuery */
 
 (function ($) {
     'use strict';
 
-    var ajaxUrl     = bfcData.ajaxUrl;
-    var nonce       = bfcData.nonce;
-    var isConnected = bfcData.isConnected === '1';
+    var ajaxUrl     = bfishData.ajaxUrl;
+    var nonce       = bfishData.nonce;
+    var isConnected = bfishData.isConnected === '1';
 
     // =========================================================================
     // Helpers
@@ -51,9 +51,9 @@
 
     // Restore active tab after a sync-triggered reload
     (function () {
-        var savedTab = localStorage.getItem('bfc_active_tab');
+        var savedTab = localStorage.getItem('bfish_active_tab');
         if (savedTab) {
-            localStorage.removeItem('bfc_active_tab');
+            localStorage.removeItem('bfish_active_tab');
             activateTab(savedTab);
         }
     })();
@@ -69,9 +69,9 @@
 
         // Switching to setup while connected: sync then reload
         if ( isConnected && tab === 'setup' ) {
-            localStorage.setItem('bfc_active_tab', tab);
-            showSpinner(bfcData.lang === 'fr' ? 'Synchronisation…' : 'Syncing…');
-            $.post(ajaxUrl, { action: 'bfc_sync', nonce: nonce })
+            localStorage.setItem('bfish_active_tab', tab);
+            showSpinner(bfishData.lang === 'fr' ? 'Synchronisation…' : 'Syncing…');
+            $.post(ajaxUrl, { action: 'bfish_sync', nonce: nonce })
             .always(function () {
                 location.reload();
             });
@@ -89,7 +89,7 @@
         var lang = $(this).data('lang');
         if ($(this).hasClass('active')) return;
 
-        $.post(ajaxUrl, { action: 'bfc_set_lang', nonce: nonce, lang: lang }, function () {
+        $.post(ajaxUrl, { action: 'bfish_set_lang', nonce: nonce, lang: lang }, function () {
             location.reload();
         });
     });
@@ -103,16 +103,16 @@
         var password = $('#bfcc-password').val();
 
         if (!email || !password) {
-            showNotice($('#bfcc-login-error'), 'error', bfcData.lang === 'fr'
+            showNotice($('#bfcc-login-error'), 'error', bfishData.lang === 'fr'
                 ? 'Veuillez remplir tous les champs.'
                 : 'Please fill in all fields.');
             return;
         }
 
-        showSpinner(bfcData.lang === 'fr' ? 'Connexion en cours…' : 'Connecting…');
+        showSpinner(bfishData.lang === 'fr' ? 'Connexion en cours…' : 'Connecting…');
 
         $.post(ajaxUrl, {
-            action:   'bfc_login',
+            action:   'bfish_login',
             nonce:    nonce,
             email:    email,
             password: password
@@ -127,7 +127,7 @@
         })
         .fail(function () {
             hideSpinner();
-            showNotice($('#bfcc-login-error'), 'error', bfcData.lang === 'fr'
+            showNotice($('#bfcc-login-error'), 'error', bfishData.lang === 'fr'
                 ? 'Erreur de connexion. Veuillez réessayer.'
                 : 'Connection error. Please try again.');
         });
@@ -143,15 +143,15 @@
     // =========================================================================
 
     $('#bfcc-btn-logout').on('click', function () {
-        var confirmMsg = bfcData.lang === 'fr'
+        var confirmMsg = bfishData.lang === 'fr'
             ? 'Se déconnecter de BookingFish ?'
             : 'Disconnect from BookingFish?';
 
         if (!confirm(confirmMsg)) return;
 
-        showSpinner(bfcData.lang === 'fr' ? 'Déconnexion…' : 'Disconnecting…');
+        showSpinner(bfishData.lang === 'fr' ? 'Déconnexion…' : 'Disconnecting…');
 
-        $.post(ajaxUrl, { action: 'bfc_logout', nonce: nonce })
+        $.post(ajaxUrl, { action: 'bfish_logout', nonce: nonce })
         .done(function () {
             hideSpinner();
             location.reload();
@@ -163,9 +163,9 @@
     // =========================================================================
 
     function doSync() {
-        showSpinner(bfcData.lang === 'fr' ? 'Synchronisation…' : 'Syncing…');
+        showSpinner(bfishData.lang === 'fr' ? 'Synchronisation…' : 'Syncing…');
 
-        $.post(ajaxUrl, { action: 'bfc_sync', nonce: nonce })
+        $.post(ajaxUrl, { action: 'bfish_sync', nonce: nonce })
         .done(function (resp) {
             hideSpinner();
             if (resp.success) {
@@ -176,7 +176,7 @@
         })
         .fail(function () {
             hideSpinner();
-            alert(bfcData.lang === 'fr' ? 'Erreur de synchronisation.' : 'Sync error.');
+            alert(bfishData.lang === 'fr' ? 'Erreur de synchronisation.' : 'Sync error.');
         });
     }
 
@@ -201,10 +201,10 @@
         }
         $input.removeClass('bfcc-input-error');
 
-        showSpinner(bfcData.lang === 'fr' ? 'Création de la page…' : 'Creating page…');
+        showSpinner(bfishData.lang === 'fr' ? 'Création de la page…' : 'Creating page…');
 
         $.post(ajaxUrl, {
-            action:   'bfc_create_page',
+            action:   'bfish_create_page',
             nonce:    nonce,
             title:    title,
             type:     type,
@@ -216,7 +216,7 @@
             if (resp.success) {
                 var url        = resp.data.url;
                 var pageId     = resp.data.page_id;
-                var isFr       = bfcData.lang === 'fr';
+                var isFr       = bfishData.lang === 'fr';
                 var confirmMsg = isFr ? 'Supprimer cette page ?' : 'Delete this page?';
                 var createdLbl = isFr ? 'Page créée :' : 'Page created:';
                 var deleteLbl  = isFr ? 'Supprimer' : 'Delete';
@@ -247,7 +247,7 @@
         })
         .fail(function () {
             hideSpinner();
-            alert(bfcData.lang === 'fr' ? 'Erreur lors de la création.' : 'Error creating page.');
+            alert(bfishData.lang === 'fr' ? 'Erreur lors de la création.' : 'Error creating page.');
         });
     });
 
@@ -259,17 +259,17 @@
         var $btn        = $(this);
         var pageId      = $btn.data('page-id');
         var confirm_msg = $btn.data('confirm') ||
-            (bfcData.lang === 'fr' ? 'Supprimer cette page ?' : 'Delete this page?');
+            (bfishData.lang === 'fr' ? 'Supprimer cette page ?' : 'Delete this page?');
 
         if (!confirm(confirm_msg)) return;
 
-        showSpinner(bfcData.lang === 'fr' ? 'Suppression…' : 'Deleting…');
+        showSpinner(bfishData.lang === 'fr' ? 'Suppression…' : 'Deleting…');
 
-        $.post(ajaxUrl, { action: 'bfc_delete_page', nonce: nonce, page_id: pageId })
+        $.post(ajaxUrl, { action: 'bfish_delete_page', nonce: nonce, page_id: pageId })
         .done(function (resp) {
             hideSpinner();
             if (resp.success) {
-                localStorage.setItem('bfc_active_tab', 'setup');
+                localStorage.setItem('bfish_active_tab', 'setup');
                 location.reload();
             } else {
                 alert(resp.data.message);
@@ -306,19 +306,19 @@
     // =========================================================================
 
     $(document).on('click', '.bfcc-btn-boat-cal', function () {
-        showSpinner(bfcData.lang === 'fr' ? 'Ouverture de Boat Calendar…' : 'Opening Boat Calendar…');
+        showSpinner(bfishData.lang === 'fr' ? 'Ouverture de Boat Calendar…' : 'Opening Boat Calendar…');
 
-        $.post(ajaxUrl, { action: 'bfc_get_boat_calendar_url', nonce: nonce })
+        $.post(ajaxUrl, { action: 'bfish_get_boat_calendar_url', nonce: nonce })
         .done(function (resp) {
             hideSpinner();
             var url = (resp.success && resp.data && resp.data.url)
                 ? resp.data.url
-                : bfcData.boatCalendarUrl;
+                : bfishData.boatCalendarUrl;
             window.open(url, '_blank');
         })
         .fail(function () {
             hideSpinner();
-            window.open(bfcData.boatCalendarUrl, '_blank');
+            window.open(bfishData.boatCalendarUrl, '_blank');
         });
     });
 
@@ -327,19 +327,19 @@
     // =========================================================================
 
     $(document).on('click', '.bfcc-btn-zonemembre', function () {
-        showSpinner(bfcData.lang === 'fr' ? 'Ouverture du tableau de bord…' : 'Opening dashboard…');
+        showSpinner(bfishData.lang === 'fr' ? 'Ouverture du tableau de bord…' : 'Opening dashboard…');
 
-        $.post(ajaxUrl, { action: 'bfc_get_zonemembre_url', nonce: nonce })
+        $.post(ajaxUrl, { action: 'bfish_get_zonemembre_url', nonce: nonce })
         .done(function (resp) {
             hideSpinner();
             var url = (resp.success && resp.data && resp.data.url)
                 ? resp.data.url
-                : bfcData.siteUrl + '/zonemembre/';
+                : bfishData.siteUrl + '/zonemembre/';
             window.open(url, '_blank');
         })
         .fail(function () {
             hideSpinner();
-            window.open(bfcData.siteUrl + '/zonemembre/', '_blank');
+            window.open(bfishData.siteUrl + '/zonemembre/', '_blank');
         });
     });
 
