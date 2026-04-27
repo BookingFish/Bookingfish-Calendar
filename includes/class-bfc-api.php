@@ -1,6 +1,6 @@
 <?php
 /**
- * BFC_API — communicates with the bookingfish.ca REST API.
+ * BFISH_API — communicates with the bookingfish.ca REST API.
  *
  * All HTTP calls are server-to-server via wp_remote_*, so there is no CORS
  * concern and no browser token exposure.
@@ -13,12 +13,12 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class BFC_API {
+class BFISH_API {
 
     private $api_base;
 
     public function __construct() {
-        $this->api_base = BFC_API_BASE;
+        $this->api_base = BFISH_API_BASE;
     }
 
     // =========================================================================
@@ -33,7 +33,7 @@ class BFC_API {
      * @return array|WP_Error
      */
     public function login( $email, $password ) {
-        bfc_log( "BFC_API::login — attempting login for: {$email}" );
+        bfish_log( "BFISH_API::login — attempting login for: {$email}" );
 
         $response = wp_remote_post(
             $this->api_base . '/client/login',
@@ -45,12 +45,12 @@ class BFC_API {
         );
 
         if ( is_wp_error( $response ) ) {
-            bfc_log( 'BFC_API::login — wp_remote_post error: ' . $response->get_error_message(), 'ERROR' );
+            bfish_log( 'BFISH_API::login — wp_remote_post error: ' . $response->get_error_message(), 'ERROR' );
             return $response;
         }
 
         $code = wp_remote_retrieve_response_code( $response );
-        bfc_log( "BFC_API::login — HTTP {$code} received." );
+        bfish_log( "BFISH_API::login — HTTP {$code} received." );
 
         return $this->parse_response( $response );
     }
@@ -62,7 +62,7 @@ class BFC_API {
      * @return array|WP_Error
      */
     public function get_embed_codes( $token ) {
-        bfc_log( 'BFC_API::get_embed_codes — fetching embed codes.' );
+        bfish_log( 'BFISH_API::get_embed_codes — fetching embed codes.' );
 
         $response = wp_remote_get(
             $this->api_base . '/client/embed-codes',
@@ -73,12 +73,12 @@ class BFC_API {
         );
 
         if ( is_wp_error( $response ) ) {
-            bfc_log( 'BFC_API::get_embed_codes — wp_remote_get error: ' . $response->get_error_message(), 'ERROR' );
+            bfish_log( 'BFISH_API::get_embed_codes — wp_remote_get error: ' . $response->get_error_message(), 'ERROR' );
             return $response;
         }
 
         $code = wp_remote_retrieve_response_code( $response );
-        bfc_log( "BFC_API::get_embed_codes — HTTP {$code} received." );
+        bfish_log( "BFISH_API::get_embed_codes — HTTP {$code} received." );
 
         $result = $this->parse_response( $response );
 
@@ -117,7 +117,7 @@ class BFC_API {
             }
         }
 
-        bfc_log( 'BFC_API::sanitize_embed_codes — embed codes sanitized (HTML entities decoded).' );
+        bfish_log( 'BFISH_API::sanitize_embed_codes — embed codes sanitized (HTML entities decoded).' );
 
         return $data;
     }
@@ -131,7 +131,7 @@ class BFC_API {
      * @return array|WP_Error  ['success', 'url'] on success.
      */
     public function get_magic_link( $token, $tab = 'calendar' ) {
-        bfc_log( 'BFC_API::get_magic_link — requesting magic link for tab=' . $tab );
+        bfish_log( 'BFISH_API::get_magic_link — requesting magic link for tab=' . $tab );
 
         $response = wp_remote_get(
             add_query_arg( 'tab', rawurlencode( $tab ), $this->api_base . '/client/magic-link' ),
@@ -142,12 +142,12 @@ class BFC_API {
         );
 
         if ( is_wp_error( $response ) ) {
-            bfc_log( 'BFC_API::get_magic_link — error: ' . $response->get_error_message(), 'ERROR' );
+            bfish_log( 'BFISH_API::get_magic_link — error: ' . $response->get_error_message(), 'ERROR' );
             return $response;
         }
 
         $code = wp_remote_retrieve_response_code( $response );
-        bfc_log( "BFC_API::get_magic_link — HTTP {$code} received." );
+        bfish_log( "BFISH_API::get_magic_link — HTTP {$code} received." );
 
         return $this->parse_response( $response );
     }
@@ -159,7 +159,7 @@ class BFC_API {
      * @return bool
      */
     public function logout( $token ) {
-        bfc_log( 'BFC_API::logout — sending logout request.' );
+        bfish_log( 'BFISH_API::logout — sending logout request.' );
 
         $response = wp_remote_post(
             $this->api_base . '/client/logout',
@@ -173,7 +173,7 @@ class BFC_API {
         );
 
         $success = ! is_wp_error( $response ) && 200 === wp_remote_retrieve_response_code( $response );
-        bfc_log( 'BFC_API::logout — result: ' . ( $success ? 'OK' : 'FAILED' ) );
+        bfish_log( 'BFISH_API::logout — result: ' . ( $success ? 'OK' : 'FAILED' ) );
         return $success;
     }
 
@@ -187,21 +187,21 @@ class BFC_API {
      * @return bool
      */
     public function is_connected() {
-        $token   = get_option( 'bfc_auth_token', '' );
-        $expires = (int) get_option( 'bfc_token_expires', 0 );
+        $token   = get_option( 'bfish_auth_token', '' );
+        $expires = (int) get_option( 'bfish_token_expires', 0 );
 
         if ( empty( $token ) ) {
-            bfc_log( 'BFC_API::is_connected — no token stored.' );
+            bfish_log( 'BFISH_API::is_connected — no token stored.' );
             return false;
         }
 
         if ( $expires > 0 && $expires < time() ) {
-            bfc_log( 'BFC_API::is_connected — token expired, clearing credentials.', 'WARNING' );
+            bfish_log( 'BFISH_API::is_connected — token expired, clearing credentials.', 'WARNING' );
             $this->clear_stored_credentials();
             return false;
         }
 
-        bfc_log( 'BFC_API::is_connected — connected, token valid until ' . gmdate( 'Y-m-d H:i:s', $expires ) . '.' );
+        bfish_log( 'BFISH_API::is_connected — connected, token valid until ' . gmdate( 'Y-m-d H:i:s', $expires ) . '.' );
         return true;
     }
 
@@ -211,24 +211,24 @@ class BFC_API {
      * @param array $data  Response body from /client/login.
      */
     public function store_credentials( array $data ) {
-        update_option( 'bfc_auth_token',    $data['token'] );
-        update_option( 'bfc_token_expires', $data['expires'] );
-        update_option( 'bfc_vendor_email',  $data['vendor_email'] );
-        update_option( 'bfc_vendor_name',   $data['vendor_name'] );
-        bfc_log( 'BFC_API::store_credentials — credentials stored for ' . $data['vendor_email'] . '.' );
+        update_option( 'bfish_auth_token',    $data['token'] );
+        update_option( 'bfish_token_expires', $data['expires'] );
+        update_option( 'bfish_vendor_email',  $data['vendor_email'] );
+        update_option( 'bfish_vendor_name',   $data['vendor_name'] );
+        bfish_log( 'BFISH_API::store_credentials — credentials stored for ' . $data['vendor_email'] . '.' );
     }
 
     /**
      * Remove all stored credentials.
      */
     public function clear_stored_credentials() {
-        update_option( 'bfc_auth_token',    '' );
-        update_option( 'bfc_token_expires', 0 );
-        update_option( 'bfc_vendor_email',  '' );
-        update_option( 'bfc_vendor_name',   '' );
-        update_option( 'bfc_embed_codes',   array() );
-        update_option( 'bfc_last_sync',     0 );
-        bfc_log( 'BFC_API::clear_stored_credentials — all credentials cleared.' );
+        update_option( 'bfish_auth_token',    '' );
+        update_option( 'bfish_token_expires', 0 );
+        update_option( 'bfish_vendor_email',  '' );
+        update_option( 'bfish_vendor_name',   '' );
+        update_option( 'bfish_embed_codes',   array() );
+        update_option( 'bfish_last_sync',     0 );
+        bfish_log( 'BFISH_API::clear_stored_credentials — all credentials cleared.' );
     }
 
     /**
@@ -237,7 +237,7 @@ class BFC_API {
      * @return string
      */
     public function get_stored_token() {
-        return get_option( 'bfc_auth_token', '' );
+        return get_option( 'bfish_auth_token', '' );
     }
 
     // =========================================================================
@@ -260,11 +260,11 @@ class BFC_API {
 
         if ( $code < 200 || $code >= 300 ) {
             $message = isset( $body['message'] ) ? $body['message'] : "API error (HTTP {$code}).";
-            bfc_log( "BFC_API::parse_response — error HTTP {$code}: {$message}", 'ERROR' );
-            return new WP_Error( 'bfc_api_error', $message, array( 'status' => $code ) );
+            bfish_log( "BFISH_API::parse_response — error HTTP {$code}: {$message}", 'ERROR' );
+            return new WP_Error( 'bfish_api_error', $message, array( 'status' => $code ) );
         }
 
-        bfc_log( 'BFC_API::parse_response — success, response parsed.' );
+        bfish_log( 'BFISH_API::parse_response — success, response parsed.' );
         return is_array( $body ) ? $body : array();
     }
 }
