@@ -1,9 +1,9 @@
 <?php
 /**
- * BFC_Pages — creates, updates and tracks WordPress pages that embed
+ * BFISH_Pages — creates, updates and tracks WordPress pages that embed
  * BookingFish calendar and gift-certificate widgets.
  *
- * Stored data structure (option: bfc_created_pages) — array of entries:
+ * Stored data structure (option: bfish_created_pages) — array of entries:
  * [
  *   'page_id'      => int,
  *   'title'        => string,
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class BFC_Pages {
+class BFISH_Pages {
 
     // =========================================================================
     // Create
@@ -36,14 +36,14 @@ class BFC_Pages {
      * @return array|WP_Error  ['page_id', 'url'] on success.
      */
     public function create_page( $title, $embed_code, $type, $sub_type ) {
-        bfc_log( "BFC_Pages::create_page — title='{$title}' type='{$type}' sub_type='{$sub_type}'" );
+        bfish_log( "BFISH_Pages::create_page — title='{$title}' type='{$type}' sub_type='{$sub_type}'" );
 
         $existing = $this->find_page_by_sub_type( $sub_type );
         if ( $existing ) {
-            bfc_log( "BFC_Pages::create_page — page for sub_type '{$sub_type}' already exists (ID {$existing['page_id']}).", 'WARNING' );
+            bfish_log( "BFISH_Pages::create_page — page for sub_type '{$sub_type}' already exists (ID {$existing['page_id']}).", 'WARNING' );
             // translators: %s: URL of the existing WordPress page that already embeds this widget.
             $message = sprintf( __( 'A page for this embed already exists: %s', 'bookingfish-calendar' ), $existing['url'] );
-            return new WP_Error( 'bfc_page_exists', $message );
+            return new WP_Error( 'bfish_page_exists', $message );
         }
 
         $post_id = wp_insert_post( array(
@@ -54,12 +54,12 @@ class BFC_Pages {
         ), true );
 
         if ( is_wp_error( $post_id ) ) {
-            bfc_log( 'BFC_Pages::create_page — wp_insert_post failed: ' . $post_id->get_error_message(), 'ERROR' );
+            bfish_log( 'BFISH_Pages::create_page — wp_insert_post failed: ' . $post_id->get_error_message(), 'ERROR' );
             return $post_id;
         }
 
         $url = get_permalink( $post_id );
-        bfc_log( "BFC_Pages::create_page — page created ID={$post_id} URL={$url}" );
+        bfish_log( "BFISH_Pages::create_page — page created ID={$post_id} URL={$url}" );
 
         $entry = array(
             'page_id'      => $post_id,
@@ -68,13 +68,13 @@ class BFC_Pages {
             'type'         => $type,
             'sub_type'     => $sub_type,
             'embed_key'    => $sub_type,
-            'vendor_email' => get_option( 'bfc_vendor_email', '' ),
+            'vendor_email' => get_option( 'bfish_vendor_email', '' ),
             'created_at'   => current_time( 'mysql' ),
         );
 
-        $all_pages   = get_option( 'bfc_created_pages', array() );
+        $all_pages   = get_option( 'bfish_created_pages', array() );
         $all_pages[] = $entry;
-        update_option( 'bfc_created_pages', $all_pages );
+        update_option( 'bfish_created_pages', $all_pages );
 
         return array( 'page_id' => $post_id, 'url' => $url );
     }
@@ -91,17 +91,17 @@ class BFC_Pages {
      */
     public function delete_page( $page_id ) {
         $page_id = (int) $page_id;
-        bfc_log( "BFC_Pages::delete_page — trashing page ID={$page_id}" );
+        bfish_log( "BFISH_Pages::delete_page — trashing page ID={$page_id}" );
 
         wp_trash_post( $page_id );
 
-        $all_pages = get_option( 'bfc_created_pages', array() );
+        $all_pages = get_option( 'bfish_created_pages', array() );
         $all_pages = array_values( array_filter( $all_pages, function( $p ) use ( $page_id ) {
             return (int) $p['page_id'] !== $page_id;
         } ) );
-        update_option( 'bfc_created_pages', $all_pages );
+        update_option( 'bfish_created_pages', $all_pages );
 
-        bfc_log( "BFC_Pages::delete_page — page ID={$page_id} removed from registry." );
+        bfish_log( "BFISH_Pages::delete_page — page ID={$page_id} removed from registry." );
         return true;
     }
 
@@ -119,16 +119,16 @@ class BFC_Pages {
     public function rename_page( $page_id, $new_title ) {
         $page_id   = (int) $page_id;
         $new_title = sanitize_text_field( $new_title );
-        bfc_log( "BFC_Pages::rename_page — ID={$page_id} new_title='{$new_title}'" );
+        bfish_log( "BFISH_Pages::rename_page — ID={$page_id} new_title='{$new_title}'" );
 
         $result = wp_update_post( array( 'ID' => $page_id, 'post_title' => $new_title ), true );
 
         if ( is_wp_error( $result ) ) {
-            bfc_log( 'BFC_Pages::rename_page — wp_update_post failed: ' . $result->get_error_message(), 'ERROR' );
+            bfish_log( 'BFISH_Pages::rename_page — wp_update_post failed: ' . $result->get_error_message(), 'ERROR' );
             return $result;
         }
 
-        $all_pages = get_option( 'bfc_created_pages', array() );
+        $all_pages = get_option( 'bfish_created_pages', array() );
         foreach ( $all_pages as &$page ) {
             if ( (int) $page['page_id'] === $page_id ) {
                 $page['title'] = $new_title;
@@ -136,9 +136,9 @@ class BFC_Pages {
             }
         }
         unset( $page );
-        update_option( 'bfc_created_pages', $all_pages );
+        update_option( 'bfish_created_pages', $all_pages );
 
-        bfc_log( "BFC_Pages::rename_page — done." );
+        bfish_log( "BFISH_Pages::rename_page — done." );
         return true;
     }
 
@@ -157,10 +157,10 @@ class BFC_Pages {
         $all_pages = $this->load_pages( false );
         $pages     = $this->filter_vendor_pages( $all_pages );
 
-        bfc_log( 'BFC_Pages::sync_pages — syncing ' . count( $pages ) . ' page(s).' );
+        bfish_log( 'BFISH_Pages::sync_pages — syncing ' . count( $pages ) . ' page(s).' );
 
         if ( empty( $pages ) ) {
-            bfc_log( 'BFC_Pages::sync_pages — no pages to sync.' );
+            bfish_log( 'BFISH_Pages::sync_pages — no pages to sync.' );
             return;
         }
 
@@ -182,7 +182,7 @@ class BFC_Pages {
             $post     = get_post( (int) $page['page_id'] );
 
             if ( ! $post || $post->post_status === 'trash' ) {
-                bfc_log( "BFC_Pages::sync_pages — page ID={$page['page_id']} is trashed or missing, skipping.", 'WARNING' );
+                bfish_log( "BFISH_Pages::sync_pages — page ID={$page['page_id']} is trashed or missing, skipping.", 'WARNING' );
                 continue;
             }
 
@@ -190,18 +190,18 @@ class BFC_Pages {
                 wp_update_post( array( 'ID' => (int) $page['page_id'], 'post_content' => $new_code ) );
                 $updated++;
                 $needs_save = true;
-                bfc_log( "BFC_Pages::sync_pages — updated page ID={$page['page_id']}." );
+                bfish_log( "BFISH_Pages::sync_pages — updated page ID={$page['page_id']}." );
             } else {
-                bfc_log( "BFC_Pages::sync_pages — page ID={$page['page_id']} already up to date." );
+                bfish_log( "BFISH_Pages::sync_pages — page ID={$page['page_id']} already up to date." );
             }
         }
         unset( $page );
 
         if ( $needs_save ) {
-            update_option( 'bfc_created_pages', $all_pages );
+            update_option( 'bfish_created_pages', $all_pages );
         }
 
-        bfc_log( "BFC_Pages::sync_pages — sync complete. {$updated} page(s) updated." );
+        bfish_log( "BFISH_Pages::sync_pages — sync complete. {$updated} page(s) updated." );
     }
 
     // =========================================================================
@@ -224,7 +224,7 @@ class BFC_Pages {
         }
         unset( $page );
 
-        bfc_log( 'BFC_Pages::get_created_pages — returned ' . count( $pages ) . ' page(s).' );
+        bfish_log( 'BFISH_Pages::get_created_pages — returned ' . count( $pages ) . ' page(s).' );
         return $pages;
     }
 
@@ -241,8 +241,8 @@ class BFC_Pages {
      * @return array
      */
     private function load_pages( $vendor_only = true ) {
-        $all_pages      = get_option( 'bfc_created_pages', array() );
-        $current_vendor = get_option( 'bfc_vendor_email', '' );
+        $all_pages      = get_option( 'bfish_created_pages', array() );
+        $current_vendor = get_option( 'bfish_vendor_email', '' );
         $needs_save     = false;
 
         // Lazy migration: tag legacy entries (no vendor_email) to the current vendor.
@@ -256,8 +256,8 @@ class BFC_Pages {
         unset( $page );
 
         if ( $needs_save ) {
-            update_option( 'bfc_created_pages', $all_pages );
-            bfc_log( 'BFC_Pages::load_pages — migrated legacy entries to vendor ' . $current_vendor . '.' );
+            update_option( 'bfish_created_pages', $all_pages );
+            bfish_log( 'BFISH_Pages::load_pages — migrated legacy entries to vendor ' . $current_vendor . '.' );
         }
 
         if ( $vendor_only ) {
@@ -274,7 +274,7 @@ class BFC_Pages {
      * @return array
      */
     private function filter_vendor_pages( array $pages ) {
-        $current_vendor = get_option( 'bfc_vendor_email', '' );
+        $current_vendor = get_option( 'bfish_vendor_email', '' );
 
         if ( ! $current_vendor ) {
             return array();
@@ -292,7 +292,7 @@ class BFC_Pages {
      * @return bool
      */
     private function is_current_vendor_page( array $page ) {
-        $current_vendor = get_option( 'bfc_vendor_email', '' );
+        $current_vendor = get_option( 'bfish_vendor_email', '' );
         return $current_vendor && isset( $page['vendor_email'] ) && $page['vendor_email'] === $current_vendor;
     }
 
@@ -318,7 +318,7 @@ class BFC_Pages {
             }
         }
 
-        bfc_log( 'BFC_Pages::build_code_map — ' . count( $map ) . ' embed code(s) mapped.' );
+        bfish_log( 'BFISH_Pages::build_code_map — ' . count( $map ) . ' embed code(s) mapped.' );
         return $map;
     }
 
