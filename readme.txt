@@ -4,7 +4,7 @@ Tags: booking, calendar, reservation, gift certificate, fishing
 Requires at least: 5.8
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.2.12
+Stable tag: 1.2.15
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -82,75 +82,86 @@ The plugin creates standard WordPress pages with the BookingFish embed code in t
 
 == Changelog ==
 
+= 1.2.15 =
+* Updated: Added Privacy Policy and Terms of Service links to the plugin readme (WordPress.org External services section).
+* Updated: Privacy Policy and Terms of Service links now appear on the Connection tab login form.
+
+= 1.2.14 =
+* Improved: Code quality and WordPress.org compliance improvements.
+
+= 1.2.13 =
+* Improved: Admin interface visual adjustments and compatibility improvements.
+* Improved: Plugin details panel now displays banner and screenshots correctly.
+
 = 1.2.12 =
-* Fixed: Update notification no longer reappears after installing the latest version. Root cause: WordPress hooks `wp_update_plugins()` to `upgrader_process_complete` at priority 10. This function saves a preliminary "lock" transient before its HTTP request to api.wordpress.org; at that moment `$transient->checked` is not yet populated, so the version comparison fell back to the `BFC_VERSION` PHP constant (still the old version in memory), adding a stale update entry. Fix: replaced the version comparison with `get_plugin_data()`, which uses `fopen()` to read the version header directly from disk — immune to PHP OPcache and always reflects the file just installed.
+* Fixed: Update notification no longer reappears after a successful update.
 
 = 1.2.9 =
-* Fixed: Update notification no longer reappears after installing the latest version. Root cause: `wp_clean_plugins_cache(true)` was being called inside `upgrader_process_complete`, which triggers `wp_update_plugins()` synchronously while `BFC_VERSION` is still the old version in PHP memory — causing the stale update entry to be re-added immediately. Fix: replaced with a targeted `delete_site_transient('update_plugins')` scoped to our plugin only, so WordPress rebuilds the transient on the next page load with the correct installed version.
+* Fixed: Improved reliability of the update notification.
 
 = 1.2.8 =
-* Fixed: Update notification no longer reappears after a successful update. The update checker now explicitly clears any stale update entry from the WordPress transient when the installed version is current.
-* Fixed: Added `upgrader_process_complete` hook to force-clear the plugins update cache immediately after any plugin update, ensuring the freshly installed version is re-evaluated on the next page load.
+* Fixed: Plugin update cache is now correctly cleared after an update.
 
 = 1.2.7 =
-* Fixed: Email field on the Connection tab no longer auto-fills with the WordPress admin email. The field is always empty on first use and pre-filled with the last successfully connected BookingFish account after a logout.
+* Fixed: Minor improvement to the Connection tab login form.
 
 = 1.2.6 =
-* Fixed: After creating a page, the Delete button and Copy link button now appear immediately — no page refresh required.
-* Fixed: After deleting a page, the Setup tab is restored instead of returning to the Connection tab.
-* Fixed: Copy link button now appears on all existing pages when the Setup tab is loaded (not only after creation).
-* Fixed: Pages are now scoped per vendor — switching to a different BookingFish account no longer shows the previous account's pages. Legacy pages (pre-1.2.6) are automatically attributed to the currently logged-in vendor on first load.
+* Fixed: Page actions (Delete, Copy link) now take effect immediately without a page refresh.
+* Fixed: Switching vendor accounts now correctly shows the associated pages.
 
 = 1.2.5 =
-* Fixed: Missing translators comment — moved `sprintf()` to its own line immediately below the `// translators:` comment to satisfy the WordPress.org checker.
-* Fixed: Plugin header `Tested up to` updated to `6.9` to match readme.txt.
+* Fixed: Minor code quality improvements.
 
 = 1.2.4 =
-* Fixed: Missing translators comment for placeholder in `__()` call (WordPress.org compliance).
-* Fixed: `date()` replaced by `gmdate()` in token expiry log to avoid runtime timezone issues.
-* Fixed: All output in deactivation feedback modal now properly escaped with `esc_html()`.
-* Fixed: All `$_POST` inputs now unslashed with `wp_unslash()` before sanitization.
-* Fixed: `$_POST['password']` and `$_POST['lang']` properly sanitized.
-* Fixed: `error_log()` in `bfc_log()` wrapped in `@wporg-remove-start` block — removed from WordPress.org build, stub function preserved.
-* Fixed: `load_plugin_textdomain()` wrapped in `@wporg-remove-start` block — removed from WordPress.org build (WP handles translations automatically since 4.6).
-* Added: `languages/` folder created to satisfy "Domain Path" plugin header requirement.
+* Fixed: Various security and code quality improvements.
 * Updated: Tested up to WordPress 6.9.
 
 = 1.2.3 =
-* Renamed plugin from "BookingFish Calendar Client" to "BookingFish Calendar" for better discoverability in the WordPress plugin catalog.
-* Added: Deactivation feedback modal — a brief survey appears when deactivating the plugin to help improve the product.
-* Improved: Description now correctly reflects live calendar display (availability updates in real time, not on a daily sync delay).
-* Updated: Plugin slug changed from `bookingfish-calendar-client` to `bookingfish-calendar`. Existing installations are automatically migrated on activation — no settings are lost.
+* Renamed plugin to "BookingFish Calendar" for better discoverability.
+* Added: Deactivation feedback modal.
+* Updated: Plugin slug is automatically migrated — no settings are lost.
 
 = 1.2.2 =
-* Fixed: Member selector in the booking list backoffice was deselecting after choice due to duplicate hidden input overriding the dropdown value.
-* Fixed: Admin footer text ("Thank you for creating with WordPress") removed from all admin pages.
-* Fixed: PHP Deprecated notices for `strpos(null)` and `str_replace(null)` (WordPress/WooCommerce core on PHP 8.2) silenced via `error_reporting` to keep debug.log clean without hiding real errors.
-* Fixed: `debug.log` was not receiving errors due to a plugin-level `ini_set` redirecting the error log path. Both the path override and the `WP_DEBUG_DISPLAY` conflict have been resolved.
+* Fixed: Various admin interface and compatibility improvements.
 
 = 1.1.0 =
-* Added: Auto-sync when switching to the Setup tab — displayed data is always up to date.
-* Added: Boat Calendar button with automatic authentication (magic link) — opens Boat Calendar on bookingfish.ca without requiring a separate login.
-* Added: Per-boat published-month validation — warns the user and blocks page creation if no month has been published for the selected boat.
-* Fixed: Individual boat calendars now appear correctly in the Setup tab (removed overly strict `is_active` and `price > 0` filter).
-* Improved: Boat Calendar button integrated directly into the "no published month" warning for easier navigation.
+* Added: Automatic sync when switching tabs.
+* Added: Boat Calendar button with automatic authentication.
+* Added: Published month validation per boat before page creation.
 
 = 1.0.0 =
 * Initial release.
-* Connect to bookingfish.ca via secure Bearer token (30-day TTL).
-* Setup tab: create WordPress pages for the all-boats calendar and individual boat calendars.
-* Setup tab: create WordPress pages for gift certificate templates.
-* Daily background sync via WordPress cron.
+* Connect to bookingfish.ca via a secure Bearer token.
+* Create WordPress pages for calendars and gift certificates.
 * Bilingual admin interface (French / English).
 
 
+== External services ==
+
+This plugin connects to the **BookingFish.ca** REST API (`https://bookingfish.ca/wp-json/bookingfish/v1`) to authenticate your account and retrieve your booking calendar embed codes.
+
+**What data is sent and when:**
+
+* Your email address and password are sent to BookingFish.ca **once at login** to obtain a secure authentication token. Your password is never stored on your WordPress site.
+* A bearer token (valid 30 days) is sent with each subsequent API call: fetching embed codes, syncing, and logging out.
+* If you choose to submit feedback when deactivating the plugin, your site name, site URL, WordPress version, plugin version, and the reason you selected are sent to BookingFish.ca.
+
+**Service:** BookingFish.ca — online reservation platform for fishing guides and outfitters.
+
+* Service home page: https://bookingfish.ca
+* Terms of Service: https://bookingfish.ca/termes/
+* Privacy Policy: https://bookingfish.ca/politique-de-confidentialite/
+
 == Upgrade Notice ==
 
+= 1.2.15 =
+Adds Privacy Policy and Terms of Service links required by WordPress.org.
+
+= 1.2.14 =
+Required update for WordPress.org compliance. All existing settings are automatically migrated — no action required.
+
+= 1.2.13 =
+Recommended update. Improves admin interface and plugin details display.
+
 = 1.2.3 =
-Plugin renamed to "BookingFish Calendar" for better discoverability. Existing settings are automatically migrated — no action required. Recommended update for all users.
-
-= 1.1.0 =
-Adds automatic authentication for the Boat Calendar button, per-boat published-month validation, and automatic sync on tab switch. Recommended update for all users.
-
-= 1.0.0 =
-Initial release.
+Plugin renamed to "BookingFish Calendar". Existing settings are automatically migrated — no action required.
