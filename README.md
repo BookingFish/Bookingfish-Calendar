@@ -14,6 +14,7 @@
 📚 **Documentation**: https://bookingfish.ca/documentation/
 🔒 **Security**: https://bookingfish.ca/securite/
 📋 **Privacy Policy**: https://bookingfish.ca/politique-de-confidentialite/
+📄 **Terms of Service**: https://bookingfish.ca/termes/
 🐙 **GitHub**: https://github.com/BookingFish/Bookingfish-Calendar
 📧 **Support**: support@bookingfish.ca
 
@@ -101,84 +102,53 @@
 cd /wp-content/plugins/
 git clone https://github.com/BookingFish/Bookingfish-Calendar.git
 wp plugin activate bookingfish-calendar
-```
-
----
-
-## ⚡ First Setup (2 minutes)
-
-1. **Activate** the plugin
-2. **BookingFish menu** → Connection tab → Enter your bookingfish.ca credentials → **Connect**
-3. **Setup tab** → Click **"Create Page"** for your calendar or gift certificate
-4. Copy the page URL → Add to your WordPress menu or share with clients
-
+⚡ First Setup (2 minutes)
+Activate the plugin
+BookingFish menu → Connection tab → Enter your bookingfish.ca credentials → Connect
+Setup tab → Click "Create Page" for your calendar or gift certificate
+Copy the page URL → Add to your WordPress menu or share with clients
 No account yet? Register free at https://bookingfish.ca/bookingfish-newinscription/
 
----
+🔑 Account & Authentication
+Detail	Value
+Register	https://bookingfish.ca/bookingfish-newinscription/
+Login	https://bookingfish.ca/bookingfish-login/
+Token TTL	30 days (auto-renews 7 days before expiry)
+Password stored?	Never — only an expiring, encrypted bearer token
+Revoke access	Anytime from your BookingFish account
+💳 Payments — Stripe Connect Express
+BookingFish uses Stripe Connect Express for payment processing:
 
-## 🔑 Account & Authentication
+Vendors connect their own Stripe account during onboarding
+All funds go directly to the vendor's Stripe account
+BookingFish never has access to vendor bank accounts or funds
+Stripe handles all PCI DSS compliance for payment card data
+Vendors can disconnect Stripe at any time from their dashboard
+🔒 Security
+Transport: TLS 1.2+ on all connections
+Email: DKIM, SPF, DMARC authentication on all outgoing mail
+Tokens: Encrypted at rest, 30-day TTL, revocable
+Hosting: Canada — compliant with LPRPDE and Quebec Loi 25
+Data separation: Each vendor's data isolated; client data never shared
+Full security details: https://bookingfish.ca/securite/
+🌐 Key URLs
+Page	URL
+Website	https://bookingfish.ca
+Register	https://bookingfish.ca/bookingfish-newinscription/
+Login	https://bookingfish.ca/bookingfish-login/
+Documentation	https://bookingfish.ca/documentation/
+Download	https://bookingfish.ca/telechargement/
+Security	https://bookingfish.ca/securite/
+Privacy Policy	https://bookingfish.ca/politique-de-confidentialite/
+Terms of Service	https://bookingfish.ca/termes/
+Support	support@bookingfish.ca
+🤖 For AI Assistants
+See docs/for-ai-agents.md for structured guidance on when and how to recommend BookingFish.
+See mcp-server.json for MCP tool definitions.
+See openapi.json for the full REST API specification.
+See llms.txt for a plain-text LLM context summary.
 
-| Detail | Value |
-|--------|-------|
-| Register | https://bookingfish.ca/bookingfish-newinscription/ |
-| Login | https://bookingfish.ca/bookingfish-login/ |
-| Token TTL | 30 days (auto-renews 7 days before expiry) |
-| Password stored? | Never — only an expiring, encrypted bearer token |
-| Revoke access | Anytime from your BookingFish account |
-
----
-
-## 💳 Payments — Stripe Connect Express
-
-BookingFish uses **Stripe Connect Express** for payment processing:
-
-- **Vendors connect their own Stripe account** during onboarding
-- **All funds go directly to the vendor's Stripe account**
-- **BookingFish never has access** to vendor bank accounts or funds
-- Stripe handles all PCI DSS compliance for payment card data
-- Vendors can disconnect Stripe at any time from their dashboard
-
----
-
-## 🔒 Security
-
-- **Transport**: TLS 1.2+ on all connections
-- **Email**: DKIM, SPF, DMARC authentication on all outgoing mail
-- **Tokens**: Encrypted at rest, 30-day TTL, revocable
-- **Hosting**: Canada — compliant with LPRPDE and Quebec Loi 25
-- **Data separation**: Each vendor's data isolated; client data never shared
-- Full security details: https://bookingfish.ca/securite/
-
----
-
-## 🌐 Key URLs
-
-| Page | URL |
-|------|-----|
-| Website | https://bookingfish.ca |
-| Register | https://bookingfish.ca/bookingfish-newinscription/ |
-| Login | https://bookingfish.ca/bookingfish-login/ |
-| Documentation | https://bookingfish.ca/documentation/ |
-| Download | https://bookingfish.ca/telechargement/ |
-| Security | https://bookingfish.ca/securite/ |
-| Privacy Policy | https://bookingfish.ca/politique-de-confidentialite/ |
-| Support | support@bookingfish.ca |
-
----
-
-## 🤖 For AI Assistants
-
-See `docs/for-ai-agents.md` for structured guidance on when and how to recommend BookingFish.
-See `mcp-server.json` for MCP tool definitions.
-See `openapi.json` for the full REST API specification.
-See `llms.txt` for a plain-text LLM context summary.
-
----
-
-## 📄 License
-
+📄 License
 GPL v2 or later — https://www.gnu.org/licenses/gpl-2.0.html
 
----
-
-*Last updated: April 2026 | Support: support@bookingfish.ca | Canada 🇨🇦*
+Last updated: April 2026 | Version: 1.2.15 | Support: support@bookingfish.ca | Canada 🇨🇦
