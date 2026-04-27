@@ -1,27 +1,27 @@
 <?php
 /**
- * BFC_Admin — WordPress admin interface for the BookingFish Calendar plugin.
+ * BFISH_Admin — WordPress admin interface for the BookingFish Calendar plugin.
  *
  * Two tabs:
  *   1. Connection     — login / logout / register link
  *   2. Configuration  — create / delete calendar & certificate pages
  *
- * All user-facing strings are bilingual (FR / EN) controlled by option bfc_language.
- * AJAX actions are wp_ajax_bfc_* and protected with nonces.
+ * All user-facing strings are bilingual (FR / EN) controlled by option bfish_language.
+ * AJAX actions are wp_ajax_bfish_* and protected with nonces.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class BFC_Admin {
+class BFISH_Admin {
 
     private $api;
     private $pages_manager;
 
     public function __construct() {
-        $this->api           = new BFC_API();
-        $this->pages_manager = new BFC_Pages();
+        $this->api           = new BFISH_API();
+        $this->pages_manager = new BFISH_Pages();
     }
 
     // =========================================================================
@@ -31,17 +31,18 @@ class BFC_Admin {
     public function init() {
         add_action( 'admin_menu',            array( $this, 'register_menu' ) );
         add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+        add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_deactivation_script' ) );
 
         // AJAX handlers (logged-in admin users only)
-        add_action( 'wp_ajax_bfc_login',                array( $this, 'ajax_login' ) );
-        add_action( 'wp_ajax_bfc_logout',               array( $this, 'ajax_logout' ) );
-        add_action( 'wp_ajax_bfc_sync',                 array( $this, 'ajax_sync' ) );
-        add_action( 'wp_ajax_bfc_create_page',          array( $this, 'ajax_create_page' ) );
-        add_action( 'wp_ajax_bfc_delete_page',          array( $this, 'ajax_delete_page' ) );
-        add_action( 'wp_ajax_bfc_rename_page',          array( $this, 'ajax_rename_page' ) );
-        add_action( 'wp_ajax_bfc_set_lang',             array( $this, 'ajax_set_language' ) );
-        add_action( 'wp_ajax_bfc_get_boat_calendar_url', array( $this, 'ajax_get_boat_calendar_url' ) );
-        add_action( 'wp_ajax_bfc_get_zonemembre_url',   array( $this, 'ajax_get_zonemembre_url' ) );
+        add_action( 'wp_ajax_bfish_login',                array( $this, 'ajax_login' ) );
+        add_action( 'wp_ajax_bfish_logout',               array( $this, 'ajax_logout' ) );
+        add_action( 'wp_ajax_bfish_sync',                 array( $this, 'ajax_sync' ) );
+        add_action( 'wp_ajax_bfish_create_page',          array( $this, 'ajax_create_page' ) );
+        add_action( 'wp_ajax_bfish_delete_page',          array( $this, 'ajax_delete_page' ) );
+        add_action( 'wp_ajax_bfish_rename_page',          array( $this, 'ajax_rename_page' ) );
+        add_action( 'wp_ajax_bfish_set_lang',             array( $this, 'ajax_set_language' ) );
+        add_action( 'wp_ajax_bfish_get_boat_calendar_url', array( $this, 'ajax_get_boat_calendar_url' ) );
+        add_action( 'wp_ajax_bfish_get_zonemembre_url',   array( $this, 'ajax_get_zonemembre_url' ) );
 
         add_action( 'admin_footer', array( $this, 'render_deactivation_modal' ) );
     }
@@ -51,7 +52,7 @@ class BFC_Admin {
     // =========================================================================
 
     public function register_menu() {
-        $lang = get_option( 'bfc_language', 'fr' );
+        $lang = get_option( 'bfish_language', 'fr' );
         $t    = function( $fr, $en ) use ( $lang ) { return $lang === 'fr' ? $fr : $en; };
 
         add_menu_page(
@@ -81,27 +82,183 @@ class BFC_Admin {
         if ( $hook !== 'toplevel_page_bookingfish-calendar' ) {
             return;
         }
+
+        // Refresh embed codes if stale (avoids duplicate logic in render_page)
+        $connected = $this->api->is_connected();
+        $token     = $this->api->get_stored_token();
+        if ( $connected ) {
+            $last_sync = (int) get_option( 'bfish_last_sync', 0 );
+            if ( $last_sync === 0 || ( time() - $last_sync ) > 3600 ) {
+                $fresh = $this->api->get_embed_codes( $token );
+                if ( ! is_wp_error( $fresh ) && ! empty( $fresh['success'] ) ) {
+                    update_option( 'bfish_embed_codes', $fresh );
+                    update_option( 'bfish_last_sync',   time() );
+                }
+            }
+        }
+
+        $embed_codes = get_option( 'bfish_embed_codes', array() );
+        $boats       = $connected ? ( $embed_codes['calendar']['boats'] ?? array() ) : array();
+        $certs       = $connected ? ( $embed_codes['certificates'] ?? array() ) : array();
+
         wp_enqueue_style(
-            'bfc-admin',
-            BFC_PLUGIN_URL . 'admin/css/bfc-admin.css',
+            'bfish-admin',
+            BFISH_PLUGIN_URL . 'admin/css/bfc-admin.css',
             array(),
-            BFC_VERSION
+            BFISH_VERSION . '.' . filemtime( BFISH_PLUGIN_DIR . 'admin/css/bfc-admin.css' )
         );
         wp_enqueue_script(
-            'bfc-admin',
-            BFC_PLUGIN_URL . 'admin/js/bfc-admin.js',
+            'bfish-admin',
+            BFISH_PLUGIN_URL . 'admin/js/bfc-admin.js',
             array( 'jquery' ),
-            BFC_VERSION,
+            BFISH_VERSION . '.' . filemtime( BFISH_PLUGIN_DIR . 'admin/js/bfc-admin.js' ),
             true
         );
-        wp_localize_script( 'bfc-admin', 'bfcData', array(
+        wp_localize_script( 'bfish-admin', 'bfishData', array(
             'ajaxUrl'         => admin_url( 'admin-ajax.php' ),
-            'nonce'           => wp_create_nonce( 'bfc_nonce' ),
-            'lang'            => get_option( 'bfc_language', 'fr' ),
-            'isConnected'     => $this->api->is_connected() ? '1' : '0',
-            'siteUrl'         => BFC_SITE_URL,
-            'boatCalendarUrl' => BFC_SITE_URL . '/zonemembre/?tab=calendar',
+            'nonce'           => wp_create_nonce( 'bfish_nonce' ),
+            'lang'            => get_option( 'bfish_language', 'fr' ),
+            'isConnected'     => $connected ? '1' : '0',
+            'siteUrl'         => BFISH_SITE_URL,
+            'boatCalendarUrl' => BFISH_SITE_URL . '/zonemembre/?tab=calendar',
         ) );
+
+        // Pass embed codes to JS via the WP script API (no raw <script> tag in template)
+        $embed_codes_js = array(
+            'calendar' => array(
+                'all_boats' => $embed_codes['calendar']['all_boats'] ?? '',
+                'boats'     => $boats,
+            ),
+            'certificates' => $certs,
+        );
+        wp_add_inline_script(
+            'bfish-admin',
+            'window.bfcEmbedCodes = ' . wp_json_encode( $embed_codes_js ) . ';'
+        );
+    }
+
+    // =========================================================================
+    // Deactivation script (plugins.php only)
+    // =========================================================================
+
+    public function enqueue_deactivation_script( $hook ) {
+        if ( $hook !== 'plugins.php' ) {
+            return;
+        }
+
+        $lang    = get_option( 'bfish_language', 'fr' );
+        $is_fr   = $lang === 'fr';
+
+        wp_register_script( 'bfish-deactivate', false, array(), BFISH_VERSION, true ); // phpcs:ignore WordPress.WP.EnqueuedResourceParameters.MissingVersion
+        wp_enqueue_script( 'bfish-deactivate' );
+
+        wp_localize_script( 'bfish-deactivate', 'bfishDeactivateData', array(
+            'pluginFile'    => 'bookingfish-calendar/bookingfish-calendar.php',
+            'feedbackUrl'   => BFISH_SITE_URL . '/wp-json/bfcm/v1/deactivation-feedback',
+            'siteName'      => get_bloginfo( 'name' ),
+            'siteUrl'       => get_site_url(),
+            'adminEmail'    => get_option( 'admin_email' ),
+            'wpVersion'     => get_bloginfo( 'version' ),
+            'pluginVersion' => BFISH_VERSION,
+            'sendingLabel'  => $is_fr ? "Envoi\u2026" : "Sending\u2026",
+        ) );
+
+        wp_add_inline_script( 'bfish-deactivate', $this->get_deactivation_js() );
+    }
+
+    private function get_deactivation_js() {
+        return '(function(){
+    var pluginFile  = bfishDeactivateData.pluginFile;
+    var feedbackUrl = bfishDeactivateData.feedbackUrl;
+    var siteData = {
+        site_name:      bfishDeactivateData.siteName,
+        site_url:       bfishDeactivateData.siteUrl,
+        admin_email:    bfishDeactivateData.adminEmail,
+        wp_version:     bfishDeactivateData.wpVersion,
+        plugin_version: bfishDeactivateData.pluginVersion
+    };
+    var sendingLabel = bfishDeactivateData.sendingLabel;
+
+    var deactivateUrl = null;
+    var modal       = document.getElementById("bfc-deactivate-modal");
+    var skipBtn     = document.getElementById("bfc-deactivate-skip");
+    var submitBtn   = document.getElementById("bfc-deactivate-submit");
+    var commentWrap = document.getElementById("bfc-deactivate-comment-wrap");
+    var commentTa   = document.getElementById("bfc-deactivate-comment");
+
+    function interceptLinks() {
+        var row = document.querySelector("tr[data-slug=\"bookingfish-calendar\"]");
+        if (!row) {
+            var rows = document.querySelectorAll("#the-list tr");
+            rows.forEach(function(r) {
+                var dp = r.getAttribute("data-plugin");
+                if (dp && dp.indexOf("bookingfish-calendar/") === 0) { row = r; }
+            });
+        }
+        if (!row) return;
+        var link = row.querySelector(".deactivate a");
+        if (!link) return;
+        link.addEventListener("click", function(e) {
+            e.preventDefault();
+            deactivateUrl = link.href;
+            modal.style.display = "flex";
+        });
+    }
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", interceptLinks);
+    } else {
+        interceptLinks();
+    }
+
+    document.querySelectorAll("input[name=\"bfish_deactivate_reason\"]").forEach(function(radio) {
+        radio.addEventListener("change", function() {
+            var showComment = (radio.value === "other" || radio.value === "not-working");
+            commentWrap.style.display = showComment ? "block" : "none";
+            submitBtn.disabled = false;
+            submitBtn.style.opacity = "1";
+            document.querySelectorAll(".bfc-reason-label").forEach(function(lbl) {
+                lbl.style.borderColor = lbl.querySelector("input").checked ? "#0073aa" : "#ddd";
+            });
+        });
+    });
+
+    if (skipBtn) {
+        skipBtn.addEventListener("click", function() {
+            if (deactivateUrl) window.location.href = deactivateUrl;
+        });
+    }
+
+    if (submitBtn) {
+        submitBtn.addEventListener("click", function() {
+            var selected = document.querySelector("input[name=\"bfish_deactivate_reason\"]:checked");
+            if (!selected || !deactivateUrl) {
+                if (deactivateUrl) window.location.href = deactivateUrl;
+                return;
+            }
+            submitBtn.disabled = true;
+            submitBtn.style.opacity = ".5";
+            submitBtn.textContent = sendingLabel;
+
+            fetch(feedbackUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(Object.assign({
+                    reason_key:   selected.value,
+                    reason_label: selected.dataset.label,
+                    comment:      commentTa.value
+                }, siteData))
+            }).finally(function() {
+                window.location.href = deactivateUrl;
+            });
+        });
+    }
+
+    if (modal) {
+        modal.addEventListener("click", function(e) {
+            if (e.target === modal && deactivateUrl) window.location.href = deactivateUrl;
+        });
+    }
+})();';
     }
 
     // =========================================================================
@@ -109,26 +266,17 @@ class BFC_Admin {
     // =========================================================================
 
     public function render_page() {
-        $lang          = get_option( 'bfc_language', 'fr' );
+        $lang          = get_option( 'bfish_language', 'fr' );
         $connected     = $this->api->is_connected();
         $token         = $this->api->get_stored_token();
-        $vendor_name      = get_option( 'bfc_vendor_name',       '' );
-        $vendor_email     = get_option( 'bfc_vendor_email',      '' );
-        $last_login_email = $connected ? '' : get_option( 'bfc_last_login_email', '' );
-        $last_sync     = (int) get_option( 'bfc_last_sync', 0 );
-        $embed_codes   = get_option( 'bfc_embed_codes', array() );
+        $vendor_name      = get_option( 'bfish_vendor_name',       '' );
+        $vendor_email     = get_option( 'bfish_vendor_email',      '' );
+        $last_login_email = $connected ? '' : get_option( 'bfish_last_login_email', '' );
+        $last_sync     = (int) get_option( 'bfish_last_sync', 0 );
+        $embed_codes   = get_option( 'bfish_embed_codes', array() );
         $created_pages = $this->pages_manager->get_created_pages();
 
-        // Refresh embed codes if connected and cache is older than 1 hour
-        if ( $connected && ( $last_sync === 0 || ( time() - $last_sync ) > 3600 ) ) {
-            $fresh = $this->api->get_embed_codes( $token );
-            if ( ! is_wp_error( $fresh ) && ! empty( $fresh['success'] ) ) {
-                update_option( 'bfc_embed_codes', $fresh );
-                update_option( 'bfc_last_sync',   time() );
-                $embed_codes = $fresh;
-            }
-        }
-
+        // embed codes already refreshed in enqueue_assets(); just read current value
         $boats        = $connected ? ( $embed_codes['calendar']['boats'] ?? array() ) : array();
         $certificates = $connected ? ( $embed_codes['certificates'] ?? array() ) : array();
 
@@ -145,11 +293,11 @@ class BFC_Admin {
                     <span class="bfcc-logo">🐟</span>
                     <div>
                         <h1 class="bfcc-title">BookingFish Calendar</h1>
-                        <p class="bfcc-subtitle"><?php echo esc_html( $t( 'Connectez votre site à votre compte BookingFish', 'Connect your site to your BookingFish account' ) ); ?> &nbsp;·&nbsp; Version&nbsp;<?php echo esc_html( BFC_VERSION ); ?></p>
+                        <p class="bfcc-subtitle"><?php echo esc_html( $t( 'Connectez votre site à votre compte BookingFish', 'Connect your site to your BookingFish account' ) ); ?> &nbsp;·&nbsp; Version&nbsp;<?php echo esc_html( BFISH_VERSION ); ?></p>
                     </div>
                     <div class="bfcc-lang-toggle">
-                        <button class="bfcc-lang-btn <?php echo $lang === 'fr' ? 'active' : ''; ?>" data-lang="fr">FR</button>
-                        <button class="bfcc-lang-btn <?php echo $lang === 'en' ? 'active' : ''; ?>" data-lang="en">EN</button>
+                        <button class="bfcc-lang-btn <?php echo esc_attr( $lang === 'fr' ? 'active' : '' ); ?>" data-lang="fr">FR</button>
+                        <button class="bfcc-lang-btn <?php echo esc_attr( $lang === 'en' ? 'active' : '' ); ?>" data-lang="en">EN</button>
                     </div>
                 </div>
             </div>
@@ -160,7 +308,7 @@ class BFC_Admin {
                     <span class="dashicons dashicons-admin-users"></span>
                     <?php echo esc_html( $t( 'Connexion', 'Connection' ) ); ?>
                 </button>
-                <button class="bfcc-tab-btn" data-tab="setup" <?php echo ! $connected ? 'disabled' : ''; ?>>
+                <button class="bfcc-tab-btn" data-tab="setup" <?php echo $connected ? '' : 'disabled'; ?>>
                     <span class="dashicons dashicons-admin-tools"></span>
                     <?php echo esc_html( $t( 'Configuration', 'Setup' ) ); ?>
                 </button>
@@ -246,12 +394,24 @@ class BFC_Admin {
                             <span><?php echo esc_html( $t( 'Pas encore de compte ?', 'No account yet?' ) ); ?></span>
                         </div>
 
-                        <a href="<?php echo esc_url( BFC_SITE_URL . '/bookingfish-inscription/' ); ?>"
+                        <a href="<?php echo esc_url( BFISH_SITE_URL . '/bookingfish-inscription/' ); ?>"
                            target="_blank" rel="noopener"
                            class="bfcc-btn bfcc-btn-outline bfcc-btn-full">
                             <span class="dashicons dashicons-plus-alt"></span>
                             <?php echo esc_html( $t( 'Créer un compte sur bookingfish.ca', 'Create an account on bookingfish.ca' ) ); ?>
                         </a>
+
+                        <p class="bfcc-legal-notice">
+                            <?php
+                            echo wp_kses(
+                                $t(
+                                    'En vous connectant, vous acceptez la <a href="' . esc_url( BFISH_SITE_URL . '/politique-de-confidentialite/' ) . '" target="_blank" rel="noopener">politique de confidentialité</a> et les <a href="' . esc_url( BFISH_SITE_URL . '/termes/' ) . '" target="_blank" rel="noopener">conditions d\'utilisation</a> de BookingFish.ca.',
+                                    'By connecting, you agree to the BookingFish.ca <a href="' . esc_url( BFISH_SITE_URL . '/politique-de-confidentialite/' ) . '" target="_blank" rel="noopener">privacy policy</a> and <a href="' . esc_url( BFISH_SITE_URL . '/termes/' ) . '" target="_blank" rel="noopener">terms of service</a>.'
+                                ),
+                                array( 'a' => array( 'href' => array(), 'target' => array(), 'rel' => array() ) )
+                            );
+                            ?>
+                        </p>
                     </div>
                 <?php endif; ?>
 
@@ -280,7 +440,7 @@ class BFC_Admin {
 
                         <!-- All boats -->
                         <?php $existing_all = $this->find_created_page( $created_pages, 'all_boats' ); ?>
-                        <div class="bfcc-page-creator <?php echo $existing_all ? 'bfcc-already-created' : ''; ?>">
+                        <div class="bfcc-page-creator <?php echo esc_attr( $existing_all ? 'bfcc-already-created' : '' ); ?>">
                             <div class="bfcc-creator-label">
                                 🚢 <?php echo esc_html( $t( 'Tous les bateaux (menu déroulant)', 'All boats (dropdown menu)' ) ); ?>
                             </div>
@@ -329,7 +489,7 @@ class BFC_Admin {
                                     $existing_boat = $this->find_created_page( $created_pages, $sub_type );
                                     $has_published = ! empty( $boat['has_published_months'] );
                                 ?>
-                                    <div class="bfcc-page-creator <?php echo $existing_boat ? 'bfcc-already-created' : ''; ?>">
+                                    <div class="bfcc-page-creator <?php echo esc_attr( $existing_boat ? 'bfcc-already-created' : '' ); ?>">
                                         <div class="bfcc-creator-label">
                                             🚤 <?php echo esc_html( $boat['name'] ); ?>
                                         </div>
@@ -398,7 +558,7 @@ class BFC_Admin {
                                 $sub_type      = 'cert:' . $cert['id'];
                                 $existing_cert = $this->find_created_page( $created_pages, $sub_type );
                             ?>
-                                <div class="bfcc-page-creator <?php echo $existing_cert ? 'bfcc-already-created' : ''; ?>">
+                                <div class="bfcc-page-creator <?php echo esc_attr( $existing_cert ? 'bfcc-already-created' : '' ); ?>">
                                     <div class="bfcc-creator-label">
                                         🎁 <?php echo esc_html( $cert['name'] ); ?>
                                     </div>
@@ -447,17 +607,6 @@ class BFC_Admin {
                         </div>
                     <?php endif; ?>
 
-                    <!-- Pass embed codes data to JS -->
-                    <script>
-                    window.bfcEmbedCodes = <?php echo wp_json_encode( array(
-                        'calendar' => array(
-                            'all_boats' => $embed_codes['calendar']['all_boats'] ?? '',
-                            'boats'     => $boats,
-                        ),
-                        'certificates' => $certificates,
-                    ) ); ?>;
-                    </script>
-
                 <?php endif; // connected ?>
             </div><!-- /tab-setup -->
 
@@ -478,47 +627,47 @@ class BFC_Admin {
     // =========================================================================
 
     public function ajax_login() {
-        check_ajax_referer( 'bfc_nonce', 'nonce' );
+        check_ajax_referer( 'bfish_nonce', 'nonce' );
 
         $email    = sanitize_email( wp_unslash( $_POST['email'] ?? '' ) );
         $password = sanitize_text_field( wp_unslash( $_POST['password'] ?? '' ) );
 
-        bfc_log( "BFC_Admin::ajax_login — attempt for email={$email}" );
+        bfish_log( "BFISH_Admin::ajax_login — attempt for email={$email}" );
 
         if ( ! $email || ! $password ) {
-            bfc_log( 'BFC_Admin::ajax_login — missing email or password.', 'WARNING' );
+            bfish_log( 'BFISH_Admin::ajax_login — missing email or password.', 'WARNING' );
             wp_send_json_error( array( 'message' => __( 'Email and password are required.', 'bookingfish-calendar' ) ) );
         }
 
         $result = $this->api->login( $email, $password );
 
         if ( is_wp_error( $result ) ) {
-            bfc_log( 'BFC_Admin::ajax_login — login WP_Error: ' . $result->get_error_message(), 'ERROR' );
+            bfish_log( 'BFISH_Admin::ajax_login — login WP_Error: ' . $result->get_error_message(), 'ERROR' );
             wp_send_json_error( array( 'message' => $result->get_error_message() ) );
         }
 
         if ( empty( $result['success'] ) ) {
             $msg = $result['message'] ?? __( 'Login failed.', 'bookingfish-calendar' );
-            bfc_log( 'BFC_Admin::ajax_login — login rejected: ' . $msg, 'WARNING' );
+            bfish_log( 'BFISH_Admin::ajax_login — login rejected: ' . $msg, 'WARNING' );
             wp_send_json_error( array( 'message' => $msg ) );
         }
 
         $this->api->store_credentials( $result );
-        update_option( 'bfc_last_login_email', $result['vendor_email'] );
+        update_option( 'bfish_last_login_email', $result['vendor_email'] );
 
         // Fetch embed codes immediately after login
         $embed_codes = $this->api->get_embed_codes( $result['token'] );
         if ( is_wp_error( $embed_codes ) ) {
-            bfc_log( 'BFC_Admin::ajax_login — embed codes fetch failed: ' . $embed_codes->get_error_message(), 'ERROR' );
+            bfish_log( 'BFISH_Admin::ajax_login — embed codes fetch failed: ' . $embed_codes->get_error_message(), 'ERROR' );
         } elseif ( ! empty( $embed_codes['success'] ) ) {
-            update_option( 'bfc_embed_codes', $embed_codes );
-            update_option( 'bfc_last_sync',   time() );
+            update_option( 'bfish_embed_codes', $embed_codes );
+            update_option( 'bfish_last_sync',   time() );
             $nb_certs = count( $embed_codes['certificates'] ?? array() );
             $nb_boats = count( $embed_codes['calendar']['boats'] ?? array() );
-            bfc_log( "BFC_Admin::ajax_login — embed codes stored: {$nb_boats} boat(s), {$nb_certs} certificate(s)." );
+            bfish_log( "BFISH_Admin::ajax_login — embed codes stored: {$nb_boats} boat(s), {$nb_certs} certificate(s)." );
         }
 
-        bfc_log( 'BFC_Admin::ajax_login — login successful for ' . $result['vendor_email'] );
+        bfish_log( 'BFISH_Admin::ajax_login — login successful for ' . $result['vendor_email'] );
         wp_send_json_success( array(
             'message'      => __( 'Connected successfully! Redirecting…', 'bookingfish-calendar' ),
             'vendor_name'  => $result['vendor_name'],
@@ -527,9 +676,9 @@ class BFC_Admin {
     }
 
     public function ajax_logout() {
-        check_ajax_referer( 'bfc_nonce', 'nonce' );
+        check_ajax_referer( 'bfish_nonce', 'nonce' );
 
-        bfc_log( 'BFC_Admin::ajax_logout — logout requested.' );
+        bfish_log( 'BFISH_Admin::ajax_logout — logout requested.' );
         $token = $this->api->get_stored_token();
         if ( $token ) {
             $this->api->logout( $token );
@@ -540,12 +689,12 @@ class BFC_Admin {
     }
 
     public function ajax_sync() {
-        check_ajax_referer( 'bfc_nonce', 'nonce' );
+        check_ajax_referer( 'bfish_nonce', 'nonce' );
 
-        bfc_log( 'BFC_Admin::ajax_sync — manual sync requested.' );
+        bfish_log( 'BFISH_Admin::ajax_sync — manual sync requested.' );
 
         if ( ! $this->api->is_connected() ) {
-            bfc_log( 'BFC_Admin::ajax_sync — not connected.', 'WARNING' );
+            bfish_log( 'BFISH_Admin::ajax_sync — not connected.', 'WARNING' );
             wp_send_json_error( array( 'message' => __( 'Not connected.', 'bookingfish-calendar' ) ) );
         }
 
@@ -553,53 +702,53 @@ class BFC_Admin {
         $embed_codes = $this->api->get_embed_codes( $token );
 
         if ( is_wp_error( $embed_codes ) ) {
-            bfc_log( 'BFC_Admin::ajax_sync — error: ' . $embed_codes->get_error_message(), 'ERROR' );
+            bfish_log( 'BFISH_Admin::ajax_sync — error: ' . $embed_codes->get_error_message(), 'ERROR' );
             wp_send_json_error( array( 'message' => $embed_codes->get_error_message() ) );
         }
 
-        update_option( 'bfc_embed_codes', $embed_codes );
-        update_option( 'bfc_last_sync',   time() );
+        update_option( 'bfish_embed_codes', $embed_codes );
+        update_option( 'bfish_last_sync',   time() );
         $this->pages_manager->sync_pages( $embed_codes );
 
-        bfc_log( 'BFC_Admin::ajax_sync — sync complete.' );
+        bfish_log( 'BFISH_Admin::ajax_sync — sync complete.' );
         wp_send_json_success( array( 'message' => __( 'Sync complete. Reloading…', 'bookingfish-calendar' ) ) );
     }
 
     public function ajax_create_page() {
-        check_ajax_referer( 'bfc_nonce', 'nonce' );
+        check_ajax_referer( 'bfish_nonce', 'nonce' );
 
         $title    = sanitize_text_field( wp_unslash( $_POST['title']    ?? '' ) );
         $type     = sanitize_key(        wp_unslash( $_POST['type']     ?? '' ) );
         $sub_type = sanitize_text_field( wp_unslash( $_POST['sub_type'] ?? '' ) );
 
-        bfc_log( "BFC_Admin::ajax_create_page — title='{$title}' type='{$type}' sub_type='{$sub_type}'" );
+        bfish_log( "BFISH_Admin::ajax_create_page — title='{$title}' type='{$type}' sub_type='{$sub_type}'" );
 
         if ( ! $this->api->is_connected() ) {
-            bfc_log( 'BFC_Admin::ajax_create_page — not connected.', 'WARNING' );
+            bfish_log( 'BFISH_Admin::ajax_create_page — not connected.', 'WARNING' );
             wp_send_json_error( array( 'message' => __( 'Not connected.', 'bookingfish-calendar' ) ) );
         }
 
         if ( ! $title ) {
-            bfc_log( 'BFC_Admin::ajax_create_page — missing title.', 'WARNING' );
+            bfish_log( 'BFISH_Admin::ajax_create_page — missing title.', 'WARNING' );
             wp_send_json_error( array( 'message' => __( 'Please enter a page name.', 'bookingfish-calendar' ) ) );
         }
 
-        $embed_codes = get_option( 'bfc_embed_codes', array() );
+        $embed_codes = get_option( 'bfish_embed_codes', array() );
         $embed_code  = $this->extract_embed_code( $embed_codes, $type, $sub_type );
 
         if ( ! $embed_code ) {
-            bfc_log( "BFC_Admin::ajax_create_page — embed code not found for type='{$type}' sub_type='{$sub_type}'.", 'ERROR' );
+            bfish_log( "BFISH_Admin::ajax_create_page — embed code not found for type='{$type}' sub_type='{$sub_type}'.", 'ERROR' );
             wp_send_json_error( array( 'message' => __( 'Embed code not found. Try syncing first.', 'bookingfish-calendar' ) ) );
         }
 
         $result = $this->pages_manager->create_page( $title, $embed_code, $type, $sub_type );
 
         if ( is_wp_error( $result ) ) {
-            bfc_log( 'BFC_Admin::ajax_create_page — create_page failed: ' . $result->get_error_message(), 'ERROR' );
+            bfish_log( 'BFISH_Admin::ajax_create_page — create_page failed: ' . $result->get_error_message(), 'ERROR' );
             wp_send_json_error( array( 'message' => $result->get_error_message() ) );
         }
 
-        bfc_log( "BFC_Admin::ajax_create_page — page created ID={$result['page_id']} URL={$result['url']}" );
+        bfish_log( "BFISH_Admin::ajax_create_page — page created ID={$result['page_id']} URL={$result['url']}" );
         wp_send_json_success( array(
             'message' => __( 'Page created successfully!', 'bookingfish-calendar' ),
             'url'     => $result['url'],
@@ -608,13 +757,13 @@ class BFC_Admin {
     }
 
     public function ajax_delete_page() {
-        check_ajax_referer( 'bfc_nonce', 'nonce' );
+        check_ajax_referer( 'bfish_nonce', 'nonce' );
 
         $page_id = intval( wp_unslash( $_POST['page_id'] ?? 0 ) );
-        bfc_log( "BFC_Admin::ajax_delete_page — page_id={$page_id}" );
+        bfish_log( "BFISH_Admin::ajax_delete_page — page_id={$page_id}" );
 
         if ( ! $page_id ) {
-            bfc_log( 'BFC_Admin::ajax_delete_page — invalid page ID.', 'WARNING' );
+            bfish_log( 'BFISH_Admin::ajax_delete_page — invalid page ID.', 'WARNING' );
             wp_send_json_error( array( 'message' => __( 'Invalid page ID.', 'bookingfish-calendar' ) ) );
         }
 
@@ -624,22 +773,22 @@ class BFC_Admin {
     }
 
     public function ajax_rename_page() {
-        check_ajax_referer( 'bfc_nonce', 'nonce' );
+        check_ajax_referer( 'bfish_nonce', 'nonce' );
 
         $page_id   = intval( wp_unslash( $_POST['page_id']   ?? 0 ) );
         $new_title = sanitize_text_field( wp_unslash( $_POST['new_title'] ?? '' ) );
 
-        bfc_log( "BFC_Admin::ajax_rename_page — page_id={$page_id} new_title='{$new_title}'" );
+        bfish_log( "BFISH_Admin::ajax_rename_page — page_id={$page_id} new_title='{$new_title}'" );
 
         if ( ! $page_id || ! $new_title ) {
-            bfc_log( 'BFC_Admin::ajax_rename_page — invalid data.', 'WARNING' );
+            bfish_log( 'BFISH_Admin::ajax_rename_page — invalid data.', 'WARNING' );
             wp_send_json_error( array( 'message' => __( 'Invalid data.', 'bookingfish-calendar' ) ) );
         }
 
         $result = $this->pages_manager->rename_page( $page_id, $new_title );
 
         if ( is_wp_error( $result ) ) {
-            bfc_log( 'BFC_Admin::ajax_rename_page — failed: ' . $result->get_error_message(), 'ERROR' );
+            bfish_log( 'BFISH_Admin::ajax_rename_page — failed: ' . $result->get_error_message(), 'ERROR' );
             wp_send_json_error( array( 'message' => $result->get_error_message() ) );
         }
 
@@ -650,45 +799,45 @@ class BFC_Admin {
     }
 
     public function ajax_set_language() {
-        check_ajax_referer( 'bfc_nonce', 'nonce' );
+        check_ajax_referer( 'bfish_nonce', 'nonce' );
 
         $raw  = sanitize_key( wp_unslash( $_POST['lang'] ?? '' ) );
         $lang = in_array( $raw, array( 'fr', 'en' ), true ) ? $raw : 'fr';
-        update_option( 'bfc_language', $lang );
-        bfc_log( "BFC_Admin::ajax_set_language — language set to '{$lang}'." );
+        update_option( 'bfish_language', $lang );
+        bfish_log( "BFISH_Admin::ajax_set_language — language set to '{$lang}'." );
 
         wp_send_json_success( array( 'lang' => $lang ) );
     }
 
     public function ajax_get_boat_calendar_url() {
-        check_ajax_referer( 'bfc_nonce', 'nonce' );
+        check_ajax_referer( 'bfish_nonce', 'nonce' );
 
         $token  = $this->api->get_stored_token();
         $result = $this->api->get_magic_link( $token, 'calendar' );
 
         if ( is_wp_error( $result ) || empty( $result['success'] ) || empty( $result['url'] ) ) {
-            bfc_log( 'BFC_Admin::ajax_get_boat_calendar_url — magic link failed, using fallback URL.', 'WARNING' );
-            wp_send_json_success( array( 'url' => BFC_SITE_URL . '/zonemembre/?tab=calendar' ) );
+            bfish_log( 'BFISH_Admin::ajax_get_boat_calendar_url — magic link failed, using fallback URL.', 'WARNING' );
+            wp_send_json_success( array( 'url' => BFISH_SITE_URL . '/zonemembre/?tab=calendar' ) );
             return;
         }
 
-        bfc_log( 'BFC_Admin::ajax_get_boat_calendar_url — magic link obtained.' );
+        bfish_log( 'BFISH_Admin::ajax_get_boat_calendar_url — magic link obtained.' );
         wp_send_json_success( array( 'url' => $result['url'] ) );
     }
 
     public function ajax_get_zonemembre_url() {
-        check_ajax_referer( 'bfc_nonce', 'nonce' );
+        check_ajax_referer( 'bfish_nonce', 'nonce' );
 
         $token  = $this->api->get_stored_token();
         $result = $this->api->get_magic_link( $token, 'welcome' );
 
         if ( is_wp_error( $result ) || empty( $result['success'] ) || empty( $result['url'] ) ) {
-            bfc_log( 'BFC_Admin::ajax_get_zonemembre_url — magic link failed, using fallback URL.', 'WARNING' );
-            wp_send_json_success( array( 'url' => BFC_SITE_URL . '/zonemembre/' ) );
+            bfish_log( 'BFISH_Admin::ajax_get_zonemembre_url — magic link failed, using fallback URL.', 'WARNING' );
+            wp_send_json_success( array( 'url' => BFISH_SITE_URL . '/zonemembre/' ) );
             return;
         }
 
-        bfc_log( 'BFC_Admin::ajax_get_zonemembre_url — magic link obtained.' );
+        bfish_log( 'BFISH_Admin::ajax_get_zonemembre_url — magic link obtained.' );
         wp_send_json_success( array( 'url' => $result['url'] ) );
     }
 
@@ -741,7 +890,7 @@ class BFC_Admin {
     }
 
     // =========================================================================
-    // Deactivation feedback modal (shown on plugins.php)
+    // Deactivation feedback modal HTML (shown on plugins.php)
     // =========================================================================
 
     public function render_deactivation_modal() {
@@ -749,25 +898,23 @@ class BFC_Admin {
         if ( $pagenow !== 'plugins.php' ) {
             return;
         }
-        $plugin_basename = 'bookingfish-calendar/bookingfish-calendar.php';
-        $feedback_url    = BFC_SITE_URL . '/wp-json/bfcm/v1/deactivation-feedback';
-        $lang            = get_option( 'bfc_language', 'fr' );
-        $is_fr           = $lang === 'fr';
-        $reasons         = $is_fr ? [
+        $lang    = get_option( 'bfish_language', 'fr' );
+        $is_fr   = $lang === 'fr';
+        $reasons = $is_fr ? array(
             'not-working'      => 'Le plugin ne fonctionne pas correctement',
             'found-better'     => "J'ai trouvé un meilleur plugin",
             'no-longer-needed' => "Je n'en ai plus besoin",
             'temporary'        => 'C\'est temporaire, je réactive plus tard',
             'site-closed'      => 'Mon site est fermé / je change de direction',
             'other'            => 'Autre raison',
-        ] : [
+        ) : array(
             'not-working'      => 'The plugin is not working properly',
             'found-better'     => 'I found a better plugin',
             'no-longer-needed' => 'I no longer need it',
             'temporary'        => "Temporary \u{2014} I'll reactivate later",
             'site-closed'      => 'My site is closing / changing direction',
             'other'            => 'Other reason',
-        ];
+        );
         $lbl_title   = $is_fr ? '🐟 Vous désactivez BookingFish Calendar' : '🐟 You are deactivating BookingFish Calendar';
         $lbl_sub     = $is_fr ? 'Pouvez-vous nous indiquer la raison ? Cela nous aide à améliorer le plugin.' : 'Could you tell us why? It helps us improve the plugin.';
         $lbl_comment = $is_fr ? 'Commentaire optionnel…' : 'Optional comment…';
@@ -783,7 +930,7 @@ class BFC_Admin {
       <?php foreach ( $reasons as $key => $label ) : ?>
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.9rem;padding:8px 12px;border:1px solid #ddd;border-radius:6px"
              class="bfc-reason-label">
-        <input type="radio" name="bfc_deactivate_reason"
+        <input type="radio" name="bfish_deactivate_reason"
                value="<?php echo esc_attr( $key ); ?>"
                data-label="<?php echo esc_attr( $label ); ?>">
         <?php echo esc_html( $label ); ?>
@@ -807,93 +954,6 @@ class BFC_Admin {
     </div>
   </div>
 </div>
-<script>
-(function(){
-    var pluginFile   = <?php echo wp_json_encode( $plugin_basename ); ?>;
-    var feedbackUrl  = <?php echo wp_json_encode( $feedback_url ); ?>;
-    var siteData = {
-        site_name:      <?php echo wp_json_encode( get_bloginfo( 'name' ) ); ?>,
-        site_url:       <?php echo wp_json_encode( get_site_url() ); ?>,
-        admin_email:    <?php echo wp_json_encode( get_option( 'admin_email' ) ); ?>,
-        wp_version:     <?php echo wp_json_encode( get_bloginfo( 'version' ) ); ?>,
-        plugin_version: <?php echo wp_json_encode( BFC_VERSION ); ?>
-    };
-
-    var deactivateUrl = null;
-    var modal       = document.getElementById('bfc-deactivate-modal');
-    var skipBtn     = document.getElementById('bfc-deactivate-skip');
-    var submitBtn   = document.getElementById('bfc-deactivate-submit');
-    var commentWrap = document.getElementById('bfc-deactivate-comment-wrap');
-    var commentTa   = document.getElementById('bfc-deactivate-comment');
-
-    function interceptLinks() {
-        var row = document.querySelector('tr[data-slug="bookingfish-calendar"]');
-        if (!row) {
-            var rows = document.querySelectorAll('#the-list tr');
-            rows.forEach(function(r) {
-                var dp = r.getAttribute('data-plugin');
-                if (dp && dp.indexOf('bookingfish-calendar/') === 0) { row = r; }
-            });
-        }
-        if (!row) return;
-        var link = row.querySelector('.deactivate a');
-        if (!link) return;
-        link.addEventListener('click', function(e) {
-            e.preventDefault();
-            deactivateUrl = link.href;
-            modal.style.display = 'flex';
-        });
-    }
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', interceptLinks);
-    } else {
-        interceptLinks();
-    }
-
-    document.querySelectorAll('input[name="bfc_deactivate_reason"]').forEach(function(radio) {
-        radio.addEventListener('change', function() {
-            var showComment = (radio.value === 'other' || radio.value === 'not-working');
-            commentWrap.style.display = showComment ? 'block' : 'none';
-            submitBtn.disabled = false;
-            submitBtn.style.opacity = '1';
-            document.querySelectorAll('.bfc-reason-label').forEach(function(lbl) {
-                lbl.style.borderColor = lbl.querySelector('input').checked ? '#0073aa' : '#ddd';
-            });
-        });
-    });
-
-    skipBtn.addEventListener('click', function() {
-        if (deactivateUrl) window.location.href = deactivateUrl;
-    });
-
-    submitBtn.addEventListener('click', function() {
-        var selected = document.querySelector('input[name="bfc_deactivate_reason"]:checked');
-        if (!selected || !deactivateUrl) {
-            if (deactivateUrl) window.location.href = deactivateUrl;
-            return;
-        }
-        submitBtn.disabled = true;
-        submitBtn.style.opacity = '.5';
-        submitBtn.textContent = <?php echo wp_json_encode( $is_fr ? 'Envoi…' : 'Sending…' ); ?>;
-
-        fetch(feedbackUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(Object.assign({
-                reason_key:   selected.value,
-                reason_label: selected.dataset.label,
-                comment:      commentTa.value
-            }, siteData))
-        }).finally(function() {
-            window.location.href = deactivateUrl;
-        });
-    });
-
-    modal.addEventListener('click', function(e) {
-        if (e.target === modal && deactivateUrl) window.location.href = deactivateUrl;
-    });
-})();
-</script>
         <?php
     }
 
