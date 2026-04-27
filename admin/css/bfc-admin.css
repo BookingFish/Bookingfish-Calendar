@@ -251,9 +251,10 @@
     cursor: pointer;
     text-decoration: none !important;
     transition: background .15s, opacity .15s;
+    box-sizing: border-box;
 }
 .bfcc-btn .dashicons { font-size: 16px; width: 16px; height: 16px; }
-.bfcc-btn-full { width: 100%; justify-content: center; }
+.bfcc-btn-full { display: flex; width: 100%; justify-content: center; }
 .bfcc-btn-sm { padding: 7px 12px; font-size: 12px; }
 
 .bfcc-btn-primary { background: var(--bfcc-primary); color: #fff !important; }
@@ -268,7 +269,8 @@
 .bfcc-btn-outline {
     background: transparent;
     color: var(--bfcc-primary) !important;
-    border: 2px solid var(--bfcc-primary);
+    border: none;
+    box-shadow: inset 0 0 0 2px var(--bfcc-primary);
 }
 .bfcc-btn-outline:hover { background: #e8f4fd; }
 
@@ -306,6 +308,20 @@
     height: 1px;
     background: var(--bfcc-border);
 }
+
+/* ---- Legal notice ---- */
+.bfcc-legal-notice {
+    margin: 16px 0 0;
+    font-size: 11px;
+    color: #1d2327;
+    text-align: center;
+    line-height: 1.5;
+}
+.bfcc-legal-notice a {
+    color: #1d2327;
+    text-decoration: underline;
+}
+.bfcc-legal-notice a:hover { color: #000; }
 
 /* ---- Notices ---- */
 .bfcc-notice {
